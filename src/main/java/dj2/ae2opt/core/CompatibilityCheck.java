@@ -36,7 +36,7 @@ public final class CompatibilityCheck {
             if (!loggedEarlyRefusal) {
                 loggedEarlyRefusal = true;
                 Diagnostics.LOG.warn("Not applying any mixin: found {} {} and {} {}, and this build is "
-                        + "written against {} and {}. AE2 keeps its own behaviour.",
+                        + "written against {} and {}. AE2 keeps its own behavior.",
                         AE2_MOD_ID, ae2, DRAWERS_MOD_ID, drawers,
                         OptimizationConfig.expectedAe2Version, OptimizationConfig.expectedStorageDrawersVersion);
             }
@@ -57,7 +57,7 @@ public final class CompatibilityCheck {
         }
 
         if (OptimizationConfig.allowUnverifiedModVersions) {
-            Diagnostics.LOG.warn("Running the drawer optimisation against unverified versions because "
+            Diagnostics.LOG.warn("Running the drawer optimization against unverified versions because "
                     + "allowUnverifiedModVersions is set. Expected {} {} and {} {}.",
                     AE2_MOD_ID, OptimizationConfig.expectedAe2Version,
                     DRAWERS_MOD_ID, OptimizationConfig.expectedStorageDrawersVersion);
@@ -67,11 +67,11 @@ public final class CompatibilityCheck {
         OptimizationConfig.optimizeDrawerInventoryPolling = false;
         OptimizationConfig.skipUnchangedDrawerPolls = false;
         OptimizationConfig.optimizeDrawerNegativeExtraction = false;
-        Diagnostics.LOG.warn("Drawer optimisation disabled: this build is validated against {} {} and {} {}, "
-                + "and those are not what is installed. AE2 keeps its own behaviour. If the installed "
+        Diagnostics.LOG.warn("Drawer optimization disabled: this build is validated against {} {} and {} {}, "
+                + "and those are not what is installed. AE2 keeps its own behavior. If the installed "
                 + "versions are correct, put the strings logged above into expectedAe2Version and "
                 + "expectedStorageDrawersVersion in {}, or set allowUnverifiedModVersions if you have "
-                + "checked the behaviour yourself.",
+                + "checked the behavior yourself.",
                 AE2_MOD_ID, OptimizationConfig.expectedAe2Version,
                 DRAWERS_MOD_ID, OptimizationConfig.expectedStorageDrawersVersion,
                 OptimizationConfig.FILE_NAME);

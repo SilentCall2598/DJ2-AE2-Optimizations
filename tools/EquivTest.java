@@ -361,7 +361,7 @@ public final class EquivTest {
         return repo;
     }
 
-    static List<String> normalise(List<AeStack> changes) {
+    static List<String> normalize(List<AeStack> changes) {
         List<String> out = new ArrayList<String>();
         for (AeStack s : changes) out.add(s.key + "=" + s.size);
         Collections.sort(out);
@@ -409,16 +409,16 @@ public final class EquivTest {
             }
 
 
-            if (!normalise(postedA).equals(normalise(postedB))) {
+            if (!normalize(postedA).equals(normalize(postedB))) {
                 System.out.println("FAIL " + name + " step " + step + " MODULATE posts differ: "
-                        + normalise(postedA) + " vs " + normalise(postedB));
+                        + normalize(postedA) + " vs " + normalize(postedB));
                 failures++; return;
             }
 
             List<AeStack> changesA = stock.update(), changesB = fast.update();
-            if (!normalise(changesA).equals(normalise(changesB))) {
-                System.out.println("FAIL " + name + " step " + step + " poll changes differ:\n  stock=" + normalise(changesA)
-                        + "\n  fast =" + normalise(changesB));
+            if (!normalize(changesA).equals(normalize(changesB))) {
+                System.out.println("FAIL " + name + " step " + step + " poll changes differ:\n  stock=" + normalize(changesA)
+                        + "\n  fast =" + normalize(changesB));
                 failures++; return;
             }
             if (!stock.cached().visible().equals(fast.cached().visible())) {
@@ -465,7 +465,7 @@ public final class EquivTest {
         }
 
         int skipsBefore = fast.skips;
-        List<String> changesA = normalise(stock.update()), changesB = normalise(fast.update());
+        List<String> changesA = normalize(stock.update()), changesB = normalize(fast.update());
 
         if (fast.skips != skipsBefore) {
             System.out.println("FAIL " + name + ": the poll was skipped, leaving the network short by "
@@ -503,7 +503,7 @@ public final class EquivTest {
         }
 
         for (int poll = 1; poll < polls; poll++) {
-            List<String> a = normalise(stock.update()), b = normalise(fast.update());
+            List<String> a = normalize(stock.update()), b = normalize(fast.update());
             if (!a.equals(b) || !stock.cached().visible().equals(fast.cached().visible())) {
                 System.out.println("FAIL " + name + " poll " + poll + ": diverged from stock");
                 failures++; return;
@@ -564,7 +564,7 @@ public final class EquivTest {
             failures++; return;
         }
         if (fast.stability != FastCache.CONFIRMED) {
-            System.out.println("FAIL " + name + ": expected the judgement to settle, state was " + fast.stability);
+            System.out.println("FAIL " + name + ": expected the judgment to settle, state was " + fast.stability);
             failures++; return;
         }
         long parked = fast.judgedLookups;
@@ -599,7 +599,7 @@ public final class EquivTest {
         int conversionsBefore = fast.conversions, copiesBefore = fast.templateCopies;
         int polls = 5;
         for (int i = 0; i < polls; i++) {
-            List<String> a = normalise(stock.update()), b = normalise(fast.update());
+            List<String> a = normalize(stock.update()), b = normalize(fast.update());
             if (!a.equals(b)) {
                 System.out.println("FAIL " + name + ": diverged from stock after disabling");
                 failures++; return;

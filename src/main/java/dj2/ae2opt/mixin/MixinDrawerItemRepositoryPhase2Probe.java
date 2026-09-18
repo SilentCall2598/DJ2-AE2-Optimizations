@@ -29,19 +29,21 @@ public abstract class MixinDrawerItemRepositoryPhase2Probe {
             return;
         }
 
-        boolean classified = true;
+        boolean classified = false;
         boolean candidate = false;
         try {
             final ItemStack prototype = drawer == null ? null : drawer.getStoredItemPrototype();
-            if (prototype != null && !prototype.isEmpty()) {
-                candidate = OreKeyExpander.covers(prototype, DrawerPresenceIndex.key(stack));
-            }
+            candidate = prototype != null && !prototype.isEmpty()
+                    && OreKeyExpander.covers(prototype, DrawerPresenceIndex.key(stack));
+            classified = true;
         } catch (RuntimeException e) {
-            classified = false;
             Diagnostics.phase2MatcherCallClassifyError();
         }
 
-        Phase2MatcherContext.recordMatcherCall(classified && candidate);
+        final int classification = !classified ? Phase2MatcherContext.UNCLASSIFIED
+                : candidate ? Phase2MatcherContext.CANDIDATE : Phase2MatcherContext.NON_CANDIDATE;
+        Phase2MatcherContext.recordMatcherCall(classification);
+
         if (classified && !candidate && cir.getReturnValueZ()) {
             Diagnostics.phase2ModelContradiction();
         }

@@ -132,7 +132,7 @@ public final class OptimizationConfig {
             writer.write("# the cache off for that bus with a logged reason instead of thrashing it.\n");
             writer.write("maxLivePrototypesPerBus = " + maxLivePrototypesPerBus + "\n\n");
             writer.write("# PHASE 2 DIAGNOSTIC ONLY. Count ItemRepositoryAdapter extraction calls and\n");
-            writer.write("# SIMULATE/MODULATE pairing without changing any transaction behaviour. Leave off\n");
+            writer.write("# SIMULATE/MODULATE pairing without changing any transaction behavior. Leave off\n");
             writer.write("# for normal play; enable for a measured 5-10 minute capture.\n");
             writer.write("instrumentExtractionTransactions = " + instrumentExtractionTransactions + "\n\n");
             writer.write("# Sample key-present negative-extraction fallbacks and record how many drawer slots\n");
@@ -141,7 +141,7 @@ public final class OptimizationConfig {
             writer.write("instrumentNegativeCandidateSlots = " + instrumentNegativeCandidateSlots + "\n\n");
             writer.write("instrumentNegativePhase2Matchers = " + instrumentNegativePhase2Matchers + "\n\n");
             writer.write("# Diagnostic counters on NetworkMonitor.forceUpdate and GridStorageCache.cellUpdate.\n");
-            writer.write("# Off by default: it is measurement, not an optimisation.\n");
+            writer.write("# Off by default: it is measurement, not an optimization.\n");
             writer.write("instrumentNetworkMonitor = " + instrumentNetworkMonitor + "\n\n");
             writer.write("# Count drawer-adapter probes per AE2 network request, and separate real extraction\n");
             writer.write("# from the probes AE2 performs while deciding where to insert an item. Answers how\n");
@@ -156,9 +156,9 @@ public final class OptimizationConfig {
             writer.write("optimizeDrawerNegativeExtraction = " + optimizeDrawerNegativeExtraction + "\n\n");
             writer.write("# Seconds between diagnostic dumps to the server log. 0 disables them.\n");
             writer.write("diagnosticsDumpIntervalSeconds = " + diagnosticsDumpIntervalSeconds + "\n\n");
-            writer.write("# The mod versions this build is validated against. The drawer optimisation reads\n");
+            writer.write("# The mod versions this build is validated against. The drawer optimization reads\n");
             writer.write("# private AE2 members by name and relies on Storage Drawers' prototype identity\n");
-            writer.write("# behaviour, so on anything else it disables itself instead of guessing. The version\n");
+            writer.write("# behavior, so on anything else it disables itself instead of guessing. The version\n");
             writer.write("# strings actually found are logged at startup. Leave a value empty to skip its check.\n");
             writer.write("expectedAe2Version = " + expectedAe2Version + "\n");
             writer.write("expectedStorageDrawersVersion = " + expectedStorageDrawersVersion + "\n");

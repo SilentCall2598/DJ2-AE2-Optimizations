@@ -8,7 +8,7 @@ import java.util.List;
 
 public final class OptimizationMixinLoader implements ILateMixinLoader {
 
-    public static final String OPTIMISATION_CONFIG = "mixins.dj2ae2opt.json";
+    public static final String OPTIMIZATION_CONFIG = "mixins.dj2ae2opt.json";
     public static final String EXTRACTION_CONFIG = "mixins.dj2ae2opt.extraction.json";
     public static final String NETWORK_MONITOR_CONFIG = "mixins.dj2ae2opt.networkmonitor.json";
     public static final String FAN_OUT_CONFIG = "mixins.dj2ae2opt.fanout.json";
@@ -43,9 +43,10 @@ public final class OptimizationMixinLoader implements ILateMixinLoader {
         MixinStatus.markRequested(MixinStatus.Feature.NEGATIVE_EPOCH_ATTRIBUTES, negative);
         MixinStatus.markRequested(MixinStatus.Feature.NEGATIVE_FRACTIONAL, negative);
         MixinStatus.markRequested(MixinStatus.Feature.NEGATIVE_PHASE2_MATCHERS, phase2Matchers);
+        MixinStatus.markRequested(MixinStatus.Feature.NEGATIVE_PHASE2_EXIT, phase2Matchers);
 
         List<String> configs = new ArrayList<String>(6);
-        configs.add(OPTIMISATION_CONFIG);
+        configs.add(OPTIMIZATION_CONFIG);
         if (extraction) {
             configs.add(EXTRACTION_CONFIG);
         }

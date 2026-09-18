@@ -56,66 +56,79 @@ public abstract class MixinTileEntityController implements IDrawerPresenceHolder
             return;
         }
 
-        if (OptimizationConfig.instrumentNegativeCandidateSlots) {
-            this.dj2ae2opt$sampleCandidateSlots(request);
+        final boolean wantCandidateSlots = OptimizationConfig.instrumentNegativeCandidateSlots;
+        final boolean wantPhase2Matchers = OptimizationConfig.instrumentNegativePhase2Matchers;
+        if (!wantCandidateSlots && !wantPhase2Matchers) {
+            return;
         }
-        if (OptimizationConfig.instrumentNegativePhase2Matchers) {
-            Phase2MatcherContext.enter();
+
+        final CandidateSlotSampler.Sample sample = this.dj2ae2opt$sampleCandidateSlots(request);
+
+        if (wantCandidateSlots) {
+            Diagnostics.candidateSampled(sample);
+        }
+
+        if (wantPhase2Matchers) {
+            Diagnostics.phase2MatcherSampleAttempted();
+            if (sample.errored) {
+                Diagnostics.phase2CandidateModelErrored();
+            } else if (sample.refused) {
+                Diagnostics.phase2CandidateModelRefused();
+            } else {
+                Phase2MatcherContext.enter();
+            }
         }
     }
 
     @Unique
-    private void dj2ae2opt$sampleCandidateSlots(final ItemStack request) {
+    private CandidateSlotSampler.Sample dj2ae2opt$sampleCandidateSlots(final ItemStack request) {
         final int[] slots = this.drawerSlots;
-        if (slots == null) {
-            Diagnostics.candidateSampleRefused();
-            return;
-        }
         final long requestKey = DrawerPresenceIndex.key(request);
-        final CandidateSlotSampler.Sample sample =
-                CandidateSlotSampler.sample(requestKey, new CandidateSlotSampler.SlotSource() {
-                    @Override
-                    public int count() {
-                        return slots.length;
-                    }
+        if (slots == null) {
+            return CandidateSlotSampler.sample(requestKey, null);
+        }
+        return CandidateSlotSampler.sample(requestKey, new CandidateSlotSampler.SlotSource() {
+            @Override
+            public int count() {
+                return slots.length;
+            }
 
-                    @Override
-                    public int slotAt(int i) {
-                        return slots[i];
-                    }
+            @Override
+            public int slotAt(int i) {
+                return slots[i];
+            }
 
-                    @Override
-                    public boolean supported(int i) {
-                        final IDrawer drawer = getDrawer(slots[i]);
-                        if (drawer == null || !drawer.isEnabled()) {
-                            return true;
-                        }
-                        return drawer instanceof IDictConvertibleProbe
-                                || drawer instanceof IBuiltInFractionalDrawer;
-                    }
+            @Override
+            public boolean supported(int i) {
+                final IDrawer drawer = getDrawer(slots[i]);
+                if (drawer == null || !drawer.isEnabled()) {
+                    return true;
+                }
+                return drawer instanceof IDictConvertibleProbe
+                        || drawer instanceof IBuiltInFractionalDrawer;
+            }
 
-                    @Override
-                    public boolean covers(int i, long key) {
-                        final ItemStack prototype = dj2ae2opt$prototypeAt(i);
-                        return prototype != null && OreKeyExpander.covers(prototype, key);
-                    }
+            @Override
+            public boolean covers(int i, long key) {
+                final ItemStack prototype = dj2ae2opt$prototypeAt(i);
+                return prototype != null && OreKeyExpander.covers(prototype, key);
+            }
 
-                    @Override
-                    public boolean literal(int i, long key) {
-                        final ItemStack prototype = dj2ae2opt$prototypeAt(i);
-                        return prototype != null && DrawerPresenceIndex.key(prototype) == key;
-                    }
+            @Override
+            public boolean literal(int i, long key) {
+                final ItemStack prototype = dj2ae2opt$prototypeAt(i);
+                return prototype != null && DrawerPresenceIndex.key(prototype) == key;
+            }
 
-                    private ItemStack dj2ae2opt$prototypeAt(int i) {
-                        final IDrawer drawer = getDrawer(slots[i]);
-                        if (drawer == null || !drawer.isEnabled()) {
-                            return null;
-                        }
-                        final ItemStack prototype = drawer.getStoredItemPrototype();
-                        return prototype == null || prototype.isEmpty() ? null : prototype;
-                    }
-                });
-        Diagnostics.candidateSampled(sample);
+            private ItemStack dj2ae2opt$prototypeAt(int i) {
+                final IDrawer drawer = getDrawer(slots[i]);
+                if (drawer == null || !drawer.isEnabled()) {
+                    return null;
+                }
+                final ItemStack prototype = drawer.getStoredItemPrototype();
+                return prototype == null || prototype.isEmpty() ? null : prototype;
+            }
+        });
     }
 
     @Override

@@ -78,14 +78,19 @@ public final class Diagnostics {
 
 
     public static long phase2MatcherSamplesAttempted;
+    public static long phase2CandidateModelRefused;
+    public static long phase2CandidateModelErrored;
     public static long phase2MatcherSamplesCompleted;
     public static long phase2MatcherSamplesLeaked;
     public static long phase2MatcherSamplesNested;
+    public static long phase2ZeroMatcherCallSamples;
+    public static long phase2SamplesWithUnclassifiedCalls;
     public static long phase2MatcherCallsTotal;
     public static long phase2CandidateMatcherCallsTotal;
-    public static long phase2ZeroMatcherCallSamples;
-    public static long phase2ModelContradictions;
+    public static long phase2NonCandidateMatcherCallsTotal;
+    public static long phase2UnclassifiedMatcherCallsTotal;
     public static long phase2MatcherCallClassifyErrors;
+    public static long phase2ModelContradictions;
     private static final long[] PHASE2_MATCHER_CALL_BUCKETS = new long[CandidateSlotSampler.BUCKETS.length + 1];
     private static final long[] PHASE2_CANDIDATE_CALL_BUCKETS =
             new long[CandidateSlotSampler.PHASE2_MATCHER_CANDIDATE_BUCKETS.length + 1];
@@ -277,10 +282,6 @@ public final class Diagnostics {
         return (CANDIDATE_SEQUENCE.incrementAndGet() % CANDIDATE_SAMPLE_INTERVAL) == 0L;
     }
 
-    public static void candidateSampleRefused() {
-        candidateSamplesRefused++;
-    }
-
     public static void candidateSampled(CandidateSlotSampler.Sample sample) {
         if (sample.errored) {
             candidateSamplesErrored++;
@@ -310,13 +311,24 @@ public final class Diagnostics {
         }
     }
 
-    public static void phase2MatcherSampleEntered() {
+    public static void phase2MatcherSampleAttempted() {
         phase2MatcherSamplesAttempted++;
+    }
+
+    public static void phase2CandidateModelRefused() {
+        phase2CandidateModelRefused++;
+    }
+
+    public static void phase2CandidateModelErrored() {
+        phase2CandidateModelErrored++;
+    }
+
+    public static void phase2ContextEntered() {
         if (!loggedPhase2MatcherSample) {
             loggedPhase2MatcherSample = true;
             MixinStatus.Feature.NEGATIVE_PHASE2_MATCHERS.markRuntimeHit();
             RUNTIME.info("ACTIVE: first phase-2 matcher-call sample entered for a key-present "
-                    + "negative extraction fallback.");
+                    + "negative extraction fallback with a valid candidate model.");
         }
     }
 
@@ -337,15 +349,23 @@ public final class Diagnostics {
         }
     }
 
-    public static void phase2MatcherSampleCompleted(int matcherCalls, int candidateCalls) {
+    public static void phase2MatcherSampleCompleted(int matcherCalls, int candidateCalls,
+                                                     int nonCandidateCalls, int unclassifiedCalls) {
         phase2MatcherSamplesCompleted++;
+        MixinStatus.Feature.NEGATIVE_PHASE2_EXIT.markRuntimeHit();
         phase2MatcherCallsTotal += matcherCalls;
         phase2CandidateMatcherCallsTotal += candidateCalls;
+        phase2NonCandidateMatcherCallsTotal += nonCandidateCalls;
+        phase2UnclassifiedMatcherCallsTotal += unclassifiedCalls;
         PHASE2_MATCHER_CALL_BUCKETS[CandidateSlotSampler.bucket(matcherCalls)]++;
         PHASE2_CANDIDATE_CALL_BUCKETS[CandidateSlotSampler.bucket(candidateCalls,
                 CandidateSlotSampler.PHASE2_MATCHER_CANDIDATE_BUCKETS)]++;
         if (matcherCalls == 0) {
             phase2ZeroMatcherCallSamples++;
+            return;
+        }
+        if (unclassifiedCalls > 0) {
+            phase2SamplesWithUnclassifiedCalls++;
             return;
         }
         final int ratio = CandidateSlotSampler.ratioBucket(candidateCalls, matcherCalls);
@@ -820,6 +840,7 @@ public final class Diagnostics {
 
     private static List<String> candidateLines() {
         final List<String> lines = new ArrayList<String>();
+        lines.add("-- structural full-array bound (A), not actual matcher calls or time saved --");
         lines.add(String.format("candidate sampling: %d eligible, %d sampled (1 in %d), %d refused, "
                 + "%d errored, %d key-present with zero candidates",
                 candidateEligible, candidateSamples, CANDIDATE_SAMPLE_INTERVAL,
@@ -874,15 +895,22 @@ public final class Diagnostics {
 
     private static List<String> phase2MatcherLines() {
         final List<String> lines = new ArrayList<String>();
-        lines.add(String.format("phase-2 matcher   : %d sampled, %d completed, %d zero-call, "
-                + "%d leaked, %d nested",
-                phase2MatcherSamplesAttempted, phase2MatcherSamplesCompleted, phase2ZeroMatcherCallSamples,
-                phase2MatcherSamplesLeaked, phase2MatcherSamplesNested));
+        lines.add("-- phase-2 actual matcher-call bound (B), separate from the structural bound (A) "
+                + "above and from time saved (C, unmeasured) --");
+        lines.add(String.format("phase-2 samples   : %d attempted, %d completed, %d model invalid "
+                + "(%d refused, %d errored), %d zero-call, %d leaked, %d nested",
+                phase2MatcherSamplesAttempted, phase2MatcherSamplesCompleted,
+                phase2CandidateModelRefused + phase2CandidateModelErrored,
+                phase2CandidateModelRefused, phase2CandidateModelErrored,
+                phase2ZeroMatcherCallSamples, phase2MatcherSamplesLeaked, phase2MatcherSamplesNested));
         lines.add(String.format("  matcher calls   : %d actual phase-2 calls, %d candidate-member (%s), "
-                + "%d classify errors",
+                + "%d classified non-candidate, %d unclassified",
                 phase2MatcherCallsTotal, phase2CandidateMatcherCallsTotal,
                 percent(phase2CandidateMatcherCallsTotal, phase2MatcherCallsTotal),
-                phase2MatcherCallClassifyErrors));
+                phase2NonCandidateMatcherCallsTotal, phase2UnclassifiedMatcherCallsTotal));
+        lines.add(String.format("  classify errors : %d (%d sample(s) excluded from the retained-fraction "
+                + "histogram below because of them)",
+                phase2MatcherCallClassifyErrors, phase2SamplesWithUnclassifiedCalls));
         lines.add("  model contradict: " + phase2ModelContradictions
                 + " (a stock match on a slot the candidate model excluded)");
         lines.add("  retained frac   : " + ratioHistogram(PHASE2_RETAINED_FRACTION_BUCKETS));
