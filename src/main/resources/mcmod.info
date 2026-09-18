@@ -1,0 +1,11 @@
+[
+  {
+    "modid": "${modid}",
+    "name": "${modname}",
+    "description": "Targeted AE2 performance optimizations for Divine Journey 2.",
+    "version": "${version}",
+    "mcversion": "${mcversion}",
+    "authorList": [],
+    "dependencies": []
+  }
+]

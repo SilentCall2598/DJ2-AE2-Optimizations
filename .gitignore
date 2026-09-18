@@ -1,0 +1,15 @@
+.gradle/
+build/
+run/
+libs/*.jar
+!libs/.gitkeep
+# the two pack jars the mixins compile against are kept in the archive on purpose
+!libs/ae2-uel-v0.56.4.jar
+!libs/StorageDrawers-1.12.2-5.5.0.jar
+!libs/framedcompactdrawers-1.2.7.jar
+.idea/
+*.iml
+out/
+
+# The wrapper is committed on purpose, gradle intends it to be version controlled.
+!gradle/wrapper/gradle-wrapper.jar

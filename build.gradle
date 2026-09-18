@@ -1,0 +1,102 @@
+plugins {
+    id 'com.gtnewhorizons.retrofuturagradle' version '2.0.2'
+    id 'java'
+}
+
+group   = project.mod_group
+version = project.mod_version
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(8)
+    }
+}
+
+minecraft {
+    mcVersion = project.minecraft_version
+    mcpMappingChannel = project.mcp_mapping_channel
+    mcpMappingVersion = project.mcp_mapping_version
+}
+
+repositories {
+    maven {
+        name 'CleanroomMC'
+        url 'https://maven.cleanroommc.com'
+        mavenContent { includeGroup 'zone.rong' }
+    }
+    mavenCentral()
+}
+
+configurations {
+    packJars
+    compileOnly.extendsFrom(packJars)
+}
+
+dependencies {
+    String mixinBooter = modUtils.enableMixins(
+            "zone.rong:mixinbooter:${project.mixinbooter_version}",
+            "${project.mod_id}.mixins.refmap.json")
+    api(mixinBooter) { transitive = false }
+    annotationProcessor(mixinBooter) { transitive = false }
+
+
+    annotationProcessor 'org.ow2.asm:asm-debug-all:5.2'
+    annotationProcessor 'com.google.guava:guava:32.1.2-jre'
+    annotationProcessor 'com.google.code.gson:gson:2.8.9'
+
+    packJars files("libs/${project.ae2_jar}", "libs/${project.storagedrawers_jar}")
+}
+
+tasks.register('verifyLocalDependencies') {
+    description = 'Checks that libs/ holds exactly the pack jars the mixins compile against.'
+    doLast {
+        List<String> missing = []
+        [ae2_jar: project.ae2_jar, storagedrawers_jar: project.storagedrawers_jar].each { key, name ->
+            if (!name) {
+                missing << "${key} is not set in gradle.properties"
+            } else if (!file("libs/${name}").exists()) {
+                missing << "libs/${name} (${key})"
+            }
+        }
+        if (!missing.isEmpty()) {
+            List<String> present = fileTree(dir: 'libs', include: '*.jar').files*.name.sort()
+            throw new GradleException(
+                    'Missing compile dependencies:\n  ' + missing.join('\n  ') +
+                    '\nlibs/ currently holds: ' + (present.isEmpty() ? '(nothing)' : present.join(', ')) +
+                    '\n\nCopy the jars out of your Divine Journey 2 instance. Both are pinned by exact ' +
+                    'filename on purpose: the mixins read AE2 UEL internals by name, and the drawer ' +
+                    'conversion cache depends on Storage Drawers prototype behaviour, so compiling ' +
+                    'against a different build would produce a jar that applies cleanly and is wrong. ' +
+                    'If your filenames differ, edit ae2_jar / storagedrawers_jar in gradle.properties ' +
+                    'and the matching expected*Version keys in config/dj2ae2opt.cfg.')
+        }
+        logger.lifecycle("Compiling against ${project.ae2_jar} and ${project.storagedrawers_jar}")
+    }
+}
+
+compileJava.dependsOn verifyLocalDependencies
+
+processResources {
+    inputs.property 'version', project.mod_version
+    inputs.property 'mcversion', project.minecraft_version
+
+    filesMatching('mcmod.info') {
+        expand 'version'  : project.mod_version,
+               'mcversion': project.minecraft_version,
+               'modid'    : project.mod_id,
+               'modname'  : project.mod_name
+    }
+}
+
+jar {
+    manifest {
+        attributes(
+                'Implementation-Title'  : project.mod_name,
+                'Implementation-Version': project.mod_version
+        )
+    }
+}
+
+tasks.named('wrapper', Wrapper) {
+    gradleVersion = project.gradle_version
+}
