@@ -75,6 +75,25 @@ public final class Diagnostics {
     private static final long[] FULL_LENGTH_BUCKETS = new long[CandidateSlotSampler.BUCKETS.length + 1];
     private static final long[] RATIO_BUCKETS =
             new long[CandidateSlotSampler.RATIO_BUCKETS_PERCENT.length + 1];
+
+
+    public static long phase2MatcherSamplesAttempted;
+    public static long phase2MatcherSamplesCompleted;
+    public static long phase2MatcherSamplesLeaked;
+    public static long phase2MatcherSamplesNested;
+    public static long phase2MatcherCallsTotal;
+    public static long phase2CandidateMatcherCallsTotal;
+    public static long phase2ZeroMatcherCallSamples;
+    public static long phase2ModelContradictions;
+    public static long phase2MatcherCallClassifyErrors;
+    private static final long[] PHASE2_MATCHER_CALL_BUCKETS = new long[CandidateSlotSampler.BUCKETS.length + 1];
+    private static final long[] PHASE2_CANDIDATE_CALL_BUCKETS =
+            new long[CandidateSlotSampler.PHASE2_MATCHER_CANDIDATE_BUCKETS.length + 1];
+    private static final long[] PHASE2_RETAINED_FRACTION_BUCKETS =
+            new long[CandidateSlotSampler.RATIO_BUCKETS_PERCENT.length + 1];
+    private static boolean loggedPhase2MatcherSample;
+
+
     public static final int EPOCH_STANDARD = 0;
     public static final int EPOCH_COMPACTING = 1;
     public static final int EPOCH_ATTRIBUTES = 2;
@@ -291,6 +310,50 @@ public final class Diagnostics {
         }
     }
 
+    public static void phase2MatcherSampleEntered() {
+        phase2MatcherSamplesAttempted++;
+        if (!loggedPhase2MatcherSample) {
+            loggedPhase2MatcherSample = true;
+            MixinStatus.Feature.NEGATIVE_PHASE2_MATCHERS.markRuntimeHit();
+            RUNTIME.info("ACTIVE: first phase-2 matcher-call sample entered for a key-present "
+                    + "negative extraction fallback.");
+        }
+    }
+
+    public static void phase2ContextNested() {
+        phase2MatcherSamplesNested++;
+    }
+
+    public static void phase2MatcherCallClassifyError() {
+        phase2MatcherCallClassifyErrors++;
+    }
+
+    public static void phase2ModelContradiction() {
+        if (phase2ModelContradictions++ == 0) {
+            LOG.warn("Phase-2 matcher model contradiction: a stock testPredicateExtract call matched "
+                    + "a drawer the conservative candidate model did not include. This does not change "
+                    + "gameplay; it means candidate-slot narrowing would need a wider model before it "
+                    + "could be used for real extraction.");
+        }
+    }
+
+    public static void phase2MatcherSampleCompleted(int matcherCalls, int candidateCalls) {
+        phase2MatcherSamplesCompleted++;
+        phase2MatcherCallsTotal += matcherCalls;
+        phase2CandidateMatcherCallsTotal += candidateCalls;
+        PHASE2_MATCHER_CALL_BUCKETS[CandidateSlotSampler.bucket(matcherCalls)]++;
+        PHASE2_CANDIDATE_CALL_BUCKETS[CandidateSlotSampler.bucket(candidateCalls,
+                CandidateSlotSampler.PHASE2_MATCHER_CANDIDATE_BUCKETS)]++;
+        if (matcherCalls == 0) {
+            phase2ZeroMatcherCallSamples++;
+            return;
+        }
+        final int ratio = CandidateSlotSampler.ratioBucket(candidateCalls, matcherCalls);
+        if (ratio >= 0) {
+            PHASE2_RETAINED_FRACTION_BUCKETS[ratio]++;
+        }
+    }
+
     public static void negativeUnindexableFallback() {
         negativeUnindexableFallbacks++;
     }
@@ -428,6 +491,12 @@ public final class Diagnostics {
         serverTicks++;
         if (OptimizationConfig.instrumentNetworkFanOut) {
             NetworkRequestContext.resetForTickEnd();
+        }
+        if (OptimizationConfig.instrumentNegativePhase2Matchers) {
+            int leaked = Phase2MatcherContext.resetAtServerTickEnd();
+            if (leaked > 0) {
+                phase2MatcherSamplesLeaked += leaked;
+            }
         }
     }
 
@@ -678,6 +747,9 @@ public final class Diagnostics {
             if (OptimizationConfig.instrumentNegativeCandidateSlots) {
                 lines.addAll(candidateLines());
             }
+            if (OptimizationConfig.instrumentNegativePhase2Matchers) {
+                lines.addAll(phase2MatcherLines());
+            }
             lines.add(String.format("epoch bumps       : %d total (%d standard, %d compacting, "
                     + "%d matcher)",
                     presenceEpochBumps, EPOCH_BUMPS[EPOCH_STANDARD],
@@ -765,20 +837,10 @@ public final class Diagnostics {
     }
 
     private static String ratioHistogram() {
-        final StringBuilder out = new StringBuilder();
-        for (int i = 0; i < RATIO_BUCKETS.length; i++) {
-            if (RATIO_BUCKETS[i] == 0) {
-                continue;
-            }
-            if (out.length() > 0) {
-                out.append(", ");
-            }
-            out.append(CandidateSlotSampler.ratioBucketLabel(i)).append(": ").append(RATIO_BUCKETS[i]);
-        }
-        return out.length() == 0 ? "none" : out.toString();
+        return ratioHistogram(RATIO_BUCKETS);
     }
 
-    private static String histogram(long[] buckets) {
+    private static String ratioHistogram(long[] buckets) {
         final StringBuilder out = new StringBuilder();
         for (int i = 0; i < buckets.length; i++) {
             if (buckets[i] == 0) {
@@ -787,9 +849,47 @@ public final class Diagnostics {
             if (out.length() > 0) {
                 out.append(", ");
             }
-            out.append(CandidateSlotSampler.bucketLabel(i)).append(": ").append(buckets[i]);
+            out.append(CandidateSlotSampler.ratioBucketLabel(i)).append(": ").append(buckets[i]);
         }
         return out.length() == 0 ? "none" : out.toString();
+    }
+
+    private static String histogram(long[] buckets) {
+        return histogram(buckets, CandidateSlotSampler.BUCKETS);
+    }
+
+    private static String histogram(long[] buckets, int[] bucketDefs) {
+        final StringBuilder out = new StringBuilder();
+        for (int i = 0; i < buckets.length; i++) {
+            if (buckets[i] == 0) {
+                continue;
+            }
+            if (out.length() > 0) {
+                out.append(", ");
+            }
+            out.append(CandidateSlotSampler.bucketLabel(i, bucketDefs)).append(": ").append(buckets[i]);
+        }
+        return out.length() == 0 ? "none" : out.toString();
+    }
+
+    private static List<String> phase2MatcherLines() {
+        final List<String> lines = new ArrayList<String>();
+        lines.add(String.format("phase-2 matcher   : %d sampled, %d completed, %d zero-call, "
+                + "%d leaked, %d nested",
+                phase2MatcherSamplesAttempted, phase2MatcherSamplesCompleted, phase2ZeroMatcherCallSamples,
+                phase2MatcherSamplesLeaked, phase2MatcherSamplesNested));
+        lines.add(String.format("  matcher calls   : %d actual phase-2 calls, %d candidate-member (%s), "
+                + "%d classify errors",
+                phase2MatcherCallsTotal, phase2CandidateMatcherCallsTotal,
+                percent(phase2CandidateMatcherCallsTotal, phase2MatcherCallsTotal),
+                phase2MatcherCallClassifyErrors));
+        lines.add("  model contradict: " + phase2ModelContradictions
+                + " (a stock match on a slot the candidate model excluded)");
+        lines.add("  retained frac   : " + ratioHistogram(PHASE2_RETAINED_FRACTION_BUCKETS));
+        lines.add("  matcher calls   : " + histogram(PHASE2_MATCHER_CALL_BUCKETS));
+        lines.add("  candidate calls : " + histogram(PHASE2_CANDIDATE_CALL_BUCKETS,
+                CandidateSlotSampler.PHASE2_MATCHER_CANDIDATE_BUCKETS));
+        return lines;
     }
 
     private static String fingerprint() {

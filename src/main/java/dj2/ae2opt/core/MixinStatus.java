@@ -29,7 +29,8 @@ public final class MixinStatus {
         NEGATIVE_EPOCH_STANDARD("Presence invalidation, standard", "MixinStandardDrawerItemChanged"),
         NEGATIVE_EPOCH_COMPACTING("Presence invalidation, compacting", "MixinCompDrawerItemChanged"),
         NEGATIVE_EPOCH_ATTRIBUTES("Presence invalidation, matcher", "MixinStandardDrawerGroupSyncAttributes"),
-        NEGATIVE_FRACTIONAL("Compacting drawer support", "MixinFractionalDrawerMarker");
+        NEGATIVE_FRACTIONAL("Compacting drawer support", "MixinFractionalDrawerMarker"),
+        NEGATIVE_PHASE2_MATCHERS("Phase-2 matcher-call sampling", "MixinDrawerItemRepositoryPhase2Probe");
 
         public final String label;
         public final String mixinSimpleName;
@@ -188,6 +189,8 @@ public final class MixinStatus {
             case NEGATIVE_FAST_PATH:
             case NEGATIVE_INDEX:
                 return " (waiting for a drawer controller extraction)";
+            case NEGATIVE_PHASE2_MATCHERS:
+                return " (waiting for a sampled key-present phase-2 fallback)";
             case ITEM_REPOSITORY_CACHE:
             case ITEM_LIST_VERSION:
                 return " (waiting for a storage bus to poll a drawer network)";

@@ -13,6 +13,7 @@ public final class OptimizationMixinLoader implements ILateMixinLoader {
     public static final String NETWORK_MONITOR_CONFIG = "mixins.dj2ae2opt.networkmonitor.json";
     public static final String FAN_OUT_CONFIG = "mixins.dj2ae2opt.fanout.json";
     public static final String NEGATIVE_EXTRACT_CONFIG = "mixins.dj2ae2opt.negativeextract.json";
+    public static final String NEGATIVE_PHASE2_CONFIG = "mixins.dj2ae2opt.negativephase2.json";
 
     @Override
     public List<String> getMixinConfigs() {
@@ -24,6 +25,7 @@ public final class OptimizationMixinLoader implements ILateMixinLoader {
         final boolean monitor = OptimizationConfig.instrumentNetworkMonitor;
         final boolean fanOut = OptimizationConfig.instrumentNetworkFanOut;
         final boolean negative = OptimizationConfig.optimizeDrawerNegativeExtraction;
+        final boolean phase2Matchers = negative && OptimizationConfig.instrumentNegativePhase2Matchers;
 
         MixinStatus.markRequested(MixinStatus.Feature.ITEM_REPOSITORY_CACHE, cache);
         MixinStatus.markRequested(MixinStatus.Feature.ITEM_LIST_VERSION, skip);
@@ -40,8 +42,9 @@ public final class OptimizationMixinLoader implements ILateMixinLoader {
         MixinStatus.markRequested(MixinStatus.Feature.NEGATIVE_EPOCH_COMPACTING, negative);
         MixinStatus.markRequested(MixinStatus.Feature.NEGATIVE_EPOCH_ATTRIBUTES, negative);
         MixinStatus.markRequested(MixinStatus.Feature.NEGATIVE_FRACTIONAL, negative);
+        MixinStatus.markRequested(MixinStatus.Feature.NEGATIVE_PHASE2_MATCHERS, phase2Matchers);
 
-        List<String> configs = new ArrayList<String>(5);
+        List<String> configs = new ArrayList<String>(6);
         configs.add(OPTIMISATION_CONFIG);
         if (extraction) {
             configs.add(EXTRACTION_CONFIG);
@@ -54,6 +57,9 @@ public final class OptimizationMixinLoader implements ILateMixinLoader {
         }
         if (negative) {
             configs.add(NEGATIVE_EXTRACT_CONFIG);
+        }
+        if (phase2Matchers) {
+            configs.add(NEGATIVE_PHASE2_CONFIG);
         }
         return configs;
     }

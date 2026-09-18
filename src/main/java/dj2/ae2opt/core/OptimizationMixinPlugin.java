@@ -69,6 +69,10 @@ public final class OptimizationMixinPlugin implements IMixinConfigPlugin {
                 || mixinClassName.endsWith("MixinItemRepositoryAdapterFanOutProbe")) {
             return OptimizationConfig.instrumentNetworkFanOut;
         }
+        if (mixinClassName.endsWith("MixinDrawerItemRepositoryPhase2Probe")) {
+            return OptimizationConfig.optimizeDrawerNegativeExtraction
+                    && OptimizationConfig.instrumentNegativePhase2Matchers;
+        }
         return true;
     }
 

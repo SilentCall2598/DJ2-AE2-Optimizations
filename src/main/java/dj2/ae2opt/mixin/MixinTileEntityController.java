@@ -7,7 +7,9 @@ import dj2.ae2opt.api.IDrawerPresenceHolder;
 import dj2.ae2opt.core.Diagnostics;
 import dj2.ae2opt.core.DrawerPresenceIndex;
 import dj2.ae2opt.core.CandidateSlotSampler;
+import dj2.ae2opt.core.OptimizationConfig;
 import dj2.ae2opt.core.OreKeyExpander;
+import dj2.ae2opt.core.Phase2MatcherContext;
 import dj2.ae2opt.core.LongKeySet;
 import net.minecraft.item.ItemStack;
 import org.spongepowered.asm.mixin.Mixin;
@@ -54,6 +56,16 @@ public abstract class MixinTileEntityController implements IDrawerPresenceHolder
             return;
         }
 
+        if (OptimizationConfig.instrumentNegativeCandidateSlots) {
+            this.dj2ae2opt$sampleCandidateSlots(request);
+        }
+        if (OptimizationConfig.instrumentNegativePhase2Matchers) {
+            Phase2MatcherContext.enter();
+        }
+    }
+
+    @Unique
+    private void dj2ae2opt$sampleCandidateSlots(final ItemStack request) {
         final int[] slots = this.drawerSlots;
         if (slots == null) {
             Diagnostics.candidateSampleRefused();

@@ -10,6 +10,9 @@ public final class CandidateSlotSampler {
     public static final int[] RATIO_BUCKETS_PERCENT = {1, 5, 10, 25, 50, 75};
 
 
+    public static final int[] PHASE2_MATCHER_CANDIDATE_BUCKETS = {1, 2, 5, 17};
+
+
     private static final int RECORDED_SLOTS = 8;
 
 
@@ -117,26 +120,34 @@ public final class CandidateSlotSampler {
 
 
     public static int bucket(int value) {
+        return bucket(value, BUCKETS);
+    }
+
+    public static String bucketLabel(int index) {
+        return bucketLabel(index, BUCKETS);
+    }
+
+    public static int bucket(int value, int[] buckets) {
         if (value <= 0) {
             return 0;
         }
-        for (int i = BUCKETS.length - 1; i >= 0; i--) {
-            if (value >= BUCKETS[i]) {
+        for (int i = buckets.length - 1; i >= 0; i--) {
+            if (value >= buckets[i]) {
                 return i + 1;
             }
         }
         return 0;
     }
 
-    public static String bucketLabel(int index) {
+    public static String bucketLabel(int index, int[] buckets) {
         if (index == 0) {
             return "0";
         }
-        final int low = BUCKETS[index - 1];
-        if (index == BUCKETS.length) {
+        final int low = buckets[index - 1];
+        if (index == buckets.length) {
             return low + "+";
         }
-        final int high = BUCKETS[index] - 1;
+        final int high = buckets[index] - 1;
         return low == high ? String.valueOf(low) : low + "-" + high;
     }
 }

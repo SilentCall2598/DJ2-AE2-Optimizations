@@ -36,6 +36,9 @@ public final class OptimizationConfig {
     public static boolean instrumentNegativeCandidateSlots = false;
 
 
+    public static boolean instrumentNegativePhase2Matchers = false;
+
+
     public static boolean instrumentNetworkMonitor = false;
 
 
@@ -88,6 +91,8 @@ public final class OptimizationConfig {
         instrumentExtractionTransactions = bool(properties, "instrumentExtractionTransactions", instrumentExtractionTransactions);
         instrumentNegativeCandidateSlots = bool(properties, "instrumentNegativeCandidateSlots",
                 instrumentNegativeCandidateSlots);
+        instrumentNegativePhase2Matchers = bool(properties, "instrumentNegativePhase2Matchers",
+                instrumentNegativePhase2Matchers);
         instrumentNetworkMonitor = bool(properties, "instrumentNetworkMonitor", instrumentNetworkMonitor);
         instrumentNetworkFanOut = bool(properties, "instrumentNetworkFanOut", instrumentNetworkFanOut);
         optimizeDrawerNegativeExtraction = bool(properties, "optimizeDrawerNegativeExtraction", optimizeDrawerNegativeExtraction);
@@ -134,6 +139,7 @@ public final class OptimizationConfig {
             writer.write("# a candidate index could have narrowed the stock scan to. Measurement only, one\n");
             writer.write("# request in 512, and nothing it computes is returned to Storage Drawers.\n");
             writer.write("instrumentNegativeCandidateSlots = " + instrumentNegativeCandidateSlots + "\n\n");
+            writer.write("instrumentNegativePhase2Matchers = " + instrumentNegativePhase2Matchers + "\n\n");
             writer.write("# Diagnostic counters on NetworkMonitor.forceUpdate and GridStorageCache.cellUpdate.\n");
             writer.write("# Off by default: it is measurement, not an optimisation.\n");
             writer.write("instrumentNetworkMonitor = " + instrumentNetworkMonitor + "\n\n");

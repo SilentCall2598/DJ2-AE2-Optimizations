@@ -4,6 +4,7 @@ import com.jaquadro.minecraft.storagedrawers.block.tile.TileEntityController;
 import dj2.ae2opt.api.IDrawerPresenceHolder;
 import dj2.ae2opt.core.Diagnostics;
 import dj2.ae2opt.core.OptimizationConfig;
+import dj2.ae2opt.core.Phase2MatcherContext;
 import net.minecraft.item.ItemStack;
 import org.objectweb.asm.Opcodes;
 import org.spongepowered.asm.mixin.Final;
@@ -11,7 +12,9 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.Redirect;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 import java.util.function.Predicate;
 
@@ -58,7 +61,8 @@ public abstract class MixinControllerItemRepositoryNegativeExtract {
 
         Diagnostics.negativeConsidered();
         if (holder.dj2ae2opt$mightContain(stack)) {
-            if (OptimizationConfig.instrumentNegativeCandidateSlots) {
+            if (OptimizationConfig.instrumentNegativeCandidateSlots
+                    || OptimizationConfig.instrumentNegativePhase2Matchers) {
                 holder.dj2ae2opt$sampleKeyPresentFallback(stack);
             }
             return dj2ae2opt$stockSlots(controller);
@@ -66,6 +70,21 @@ public abstract class MixinControllerItemRepositoryNegativeExtract {
 
         Diagnostics.negativeServed();
         return DJ2AE2OPT$NO_SLOTS;
+    }
+
+
+    @Inject(
+            method = "extractItem(Lnet/minecraft/item/ItemStack;IZLjava/util/function/Predicate;)"
+                    + "Lnet/minecraft/item/ItemStack;",
+            at = @At("RETURN"),
+            require = 1)
+    private void dj2ae2opt$endPhase2MatcherSample(ItemStack stack, int amount, boolean simulate,
+                                               Predicate<ItemStack> predicate,
+                                               CallbackInfoReturnable<ItemStack> cir) {
+        if (!OptimizationConfig.instrumentNegativePhase2Matchers) {
+            return;
+        }
+        Phase2MatcherContext.exit();
     }
 
 
