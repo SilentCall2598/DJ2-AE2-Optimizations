@@ -45,7 +45,7 @@ public final class OptimizationConfig {
     public static boolean optimizeDrawerNegativeExtraction = true;
 
 
-    public static boolean optimizeDrawerCandidateNarrowing = false;
+    public static boolean optimizeDrawerCandidateNarrowing = true;
 
 
     public static boolean instrumentCandidateIndexVerification = false;
