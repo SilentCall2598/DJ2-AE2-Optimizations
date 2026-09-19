@@ -62,6 +62,12 @@ public abstract class MixinControllerItemRepositoryNegativeExtract {
                     || OptimizationConfig.instrumentNegativePhase2Matchers) {
                 holder.dj2ae2opt$sampleKeyPresentFallback(stack);
             }
+            if (OptimizationConfig.optimizeDrawerCandidateNarrowing) {
+                final int[] narrowed = holder.dj2ae2opt$candidateSlotsFor(stack);
+                if (narrowed != null) {
+                    return narrowed;
+                }
+            }
             return dj2ae2opt$stockSlots(controller);
         }
 

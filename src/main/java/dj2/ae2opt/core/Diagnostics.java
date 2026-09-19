@@ -99,6 +99,31 @@ public final class Diagnostics {
     private static boolean loggedPhase2MatcherSample;
 
 
+    public static long candidateNarrowingEligible;
+    public static long candidateNarrowingServed;
+    public static long candidateNarrowingStockFallback;
+    public static long candidateNarrowingInvariantFallbacks;
+    public static long candidateIndexBuilds;
+    public static long candidateIndexBuildFailures;
+    public static long candidateIndexKeyCapRefusals;
+    public static long candidateIndexSlotRefCapRefusals;
+    public static long candidateKeysBuiltTotal;
+    public static long candidateSlotReferencesBuiltTotal;
+    public static long candidateSlotsReturnedTotal;
+    public static long candidateFullSlotsTotal;
+    private static boolean loggedCandidateNarrowingServed;
+
+    public static final int CANDIDATE_VERIFICATION_SAMPLE_INTERVAL = 512;
+    private static final java.util.concurrent.atomic.AtomicLong CANDIDATE_VERIFICATION_SEQUENCE =
+            new java.util.concurrent.atomic.AtomicLong();
+    public static long candidateVerificationEligible;
+    public static long candidateVerificationAttempted;
+    public static long candidateVerificationVerified;
+    public static long candidateVerificationRefused;
+    public static long candidateVerificationErrored;
+    public static long candidateVerificationMismatches;
+
+
     public static final int EPOCH_STANDARD = 0;
     public static final int EPOCH_COMPACTING = 1;
     public static final int EPOCH_ATTRIBUTES = 2;
@@ -372,6 +397,79 @@ public final class Diagnostics {
         if (ratio >= 0) {
             PHASE2_RETAINED_FRACTION_BUCKETS[ratio]++;
         }
+    }
+
+    public static void candidateIndexBuilt(int keys, long slotReferences) {
+        candidateIndexBuilds++;
+        candidateKeysBuiltTotal += keys;
+        candidateSlotReferencesBuiltTotal += slotReferences;
+    }
+
+    public static void candidateIndexBuildFailed() {
+        candidateIndexBuildFailures++;
+    }
+
+    public static void candidateIndexKeyCapRefused() {
+        candidateIndexKeyCapRefusals++;
+    }
+
+    public static void candidateIndexSlotRefCapRefused() {
+        candidateIndexSlotRefCapRefusals++;
+    }
+
+    public static void candidateNarrowingEligible() {
+        candidateNarrowingEligible++;
+    }
+
+    public static void candidateNarrowingInvariantFallback() {
+        candidateNarrowingInvariantFallbacks++;
+    }
+
+    public static void candidateNarrowingStockFallback() {
+        candidateNarrowingStockFallback++;
+    }
+
+    public static void candidateNarrowingServed(int candidateSlots, int fullSlots) {
+        candidateNarrowingServed++;
+        candidateSlotsReturnedTotal += candidateSlots;
+        candidateFullSlotsTotal += fullSlots;
+        if (!loggedCandidateNarrowingServed) {
+            loggedCandidateNarrowingServed = true;
+            RUNTIME.info("ACTIVE: first key-present negative extraction served from the precomputed "
+                    + "candidate-slot index instead of the full phase-2 array.");
+        }
+    }
+
+    public static boolean shouldSampleCandidateVerification() {
+        candidateVerificationEligible++;
+        return (CANDIDATE_VERIFICATION_SEQUENCE.incrementAndGet()
+                % CANDIDATE_VERIFICATION_SAMPLE_INTERVAL) == 0L;
+    }
+
+    public static void candidateVerificationVerified() {
+        candidateVerificationAttempted++;
+        candidateVerificationVerified++;
+    }
+
+    public static void candidateVerificationMismatch() {
+        candidateVerificationAttempted++;
+        if (candidateVerificationMismatches++ == 0) {
+            LOG.warn("Candidate index verification mismatch: the precomputed candidate array "
+                    + "disagreed with a fresh structural recomputation for a sampled request. "
+                    + "Falling back to the full stock phase-2 array for that request; gameplay is "
+                    + "unaffected. The index should be investigated before trusting candidate "
+                    + "narrowing further.");
+        }
+    }
+
+    public static void candidateVerificationRefused() {
+        candidateVerificationAttempted++;
+        candidateVerificationRefused++;
+    }
+
+    public static void candidateVerificationErrored() {
+        candidateVerificationAttempted++;
+        candidateVerificationErrored++;
     }
 
     public static void negativeUnindexableFallback() {
@@ -764,11 +862,21 @@ public final class Diagnostics {
             lines.add(String.format("unindexable cause : %d unknown drawer implementations, "
                     + "%d ore expansion failures",
                     presenceUnknownDrawerRefusals, oreExpansionFailures));
+            if (OptimizationConfig.optimizeDrawerCandidateNarrowing) {
+                lines.addAll(candidateNarrowingLines());
+            }
+            if (OptimizationConfig.instrumentCandidateIndexVerification) {
+                lines.addAll(candidateVerificationLines());
+            }
             if (OptimizationConfig.instrumentNegativeCandidateSlots) {
                 lines.addAll(candidateLines());
             }
             if (OptimizationConfig.instrumentNegativePhase2Matchers) {
                 lines.addAll(phase2MatcherLines());
+                if (OptimizationConfig.optimizeDrawerCandidateNarrowing) {
+                    lines.add("  note            : candidate narrowing is ON, so this measures the "
+                            + "narrowed runtime path, not the original v0.4.5 stock baseline");
+                }
             }
             lines.add(String.format("epoch bumps       : %d total (%d standard, %d compacting, "
                     + "%d matcher)",
@@ -836,6 +944,40 @@ public final class Diagnostics {
         int low = BUCKETS[index];
         int high = BUCKETS[index + 1] - 1;
         return low == high ? String.valueOf(low) : low + "-" + high;
+    }
+
+    private static List<String> candidateNarrowingLines() {
+        final List<String> lines = new ArrayList<String>();
+        lines.add("-- candidate narrowing production path --");
+        lines.add(String.format("candidate index    : %d builds, %d keys, %d slot refs",
+                candidateIndexBuilds, candidateKeysBuiltTotal, candidateSlotReferencesBuiltTotal));
+        lines.add(String.format("candidate limits   : %d key-cap, %d slot-ref-cap, %d build errors",
+                candidateIndexKeyCapRefusals, candidateIndexSlotRefCapRefusals, candidateIndexBuildFailures));
+        lines.add(String.format("narrowing requests : %d eligible key-present, %d narrowed (%s), "
+                + "%d stock fallback",
+                candidateNarrowingEligible, candidateNarrowingServed,
+                percent(candidateNarrowingServed, candidateNarrowingEligible),
+                candidateNarrowingStockFallback));
+        lines.add(String.format("narrowing slots    : %d candidate slots returned of %d original full "
+                + "slots (%s retained) - structural reduction, not measured time saved",
+                candidateSlotsReturnedTotal, candidateFullSlotsTotal,
+                percent(candidateSlotsReturnedTotal, candidateFullSlotsTotal)));
+        lines.add("invariant fallback : " + candidateNarrowingInvariantFallbacks);
+        return lines;
+    }
+
+    private static List<String> candidateVerificationLines() {
+        final List<String> lines = new ArrayList<String>();
+        lines.add("-- candidate index verification --");
+        lines.add(String.format("samples            : %d eligible (1 in %d), %d attempted, %d verified",
+                candidateVerificationEligible, CANDIDATE_VERIFICATION_SAMPLE_INTERVAL,
+                candidateVerificationAttempted, candidateVerificationVerified));
+        lines.add(String.format("model invalid      : %d refused, %d errored",
+                candidateVerificationRefused, candidateVerificationErrored));
+        lines.add("index mismatch     : " + candidateVerificationMismatches);
+        lines.add("stock fallback     : " + (candidateVerificationAttempted - candidateVerificationVerified)
+                + " sampled request(s) forced to stock");
+        return lines;
     }
 
     private static List<String> candidateLines() {

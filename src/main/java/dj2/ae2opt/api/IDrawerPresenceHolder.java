@@ -12,5 +12,8 @@ public interface IDrawerPresenceHolder {
     void dj2ae2opt$sampleKeyPresentFallback(ItemStack request);
 
 
+    int[] dj2ae2opt$candidateSlotsFor(ItemStack request);
+
+
     void dj2ae2opt$markTopologyDirty();
 }

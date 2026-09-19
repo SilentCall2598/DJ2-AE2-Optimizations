@@ -136,6 +136,10 @@ public final class MixinStatus {
         lines.add("  " + pad("identity stability sampling")
                 + (OptimizationConfig.autoDisableTemplateCacheOnLowHitRate ? "ENABLED" : "BYPASSED"));
         lines.add("  " + pad("max live prototypes / bus") + OptimizationConfig.maxLivePrototypesPerBus);
+        lines.add("  " + pad("candidate-slot narrowing")
+                + (OptimizationConfig.optimizeDrawerCandidateNarrowing ? "ENABLED" : "DISABLED"));
+        lines.add("  " + pad("candidate index verification")
+                + (OptimizationConfig.instrumentCandidateIndexVerification ? "ENABLED" : "DISABLED"));
         lines.add("This is what the config asked for. It does not mean a mixin applied.");
         return lines;
     }

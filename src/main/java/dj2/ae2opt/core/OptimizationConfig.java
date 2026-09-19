@@ -45,6 +45,18 @@ public final class OptimizationConfig {
     public static boolean optimizeDrawerNegativeExtraction = false;
 
 
+    public static boolean optimizeDrawerCandidateNarrowing = false;
+
+
+    public static boolean instrumentCandidateIndexVerification = false;
+
+
+    public static int maxCandidateKeysPerController = 16384;
+
+
+    public static int maxCandidateSlotReferencesPerController = 262144;
+
+
     public static boolean instrumentNetworkFanOut = false;
 
 
@@ -96,6 +108,12 @@ public final class OptimizationConfig {
         instrumentNetworkMonitor = bool(properties, "instrumentNetworkMonitor", instrumentNetworkMonitor);
         instrumentNetworkFanOut = bool(properties, "instrumentNetworkFanOut", instrumentNetworkFanOut);
         optimizeDrawerNegativeExtraction = bool(properties, "optimizeDrawerNegativeExtraction", optimizeDrawerNegativeExtraction);
+        optimizeDrawerCandidateNarrowing = bool(properties, "optimizeDrawerCandidateNarrowing", optimizeDrawerCandidateNarrowing);
+        instrumentCandidateIndexVerification = bool(properties, "instrumentCandidateIndexVerification",
+                instrumentCandidateIndexVerification);
+        maxCandidateKeysPerController = clamp(integer(properties, "maxCandidateKeysPerController", maxCandidateKeysPerController), 64, 1048576);
+        maxCandidateSlotReferencesPerController = clamp(integer(properties,
+                "maxCandidateSlotReferencesPerController", maxCandidateSlotReferencesPerController), 64, 4194304);
         diagnosticsDumpIntervalSeconds = clamp(integer(properties, "diagnosticsDumpIntervalSeconds", diagnosticsDumpIntervalSeconds), 0, 86400);
         expectedAe2Version = string(properties, "expectedAe2Version", expectedAe2Version);
         expectedStorageDrawersVersion = string(properties, "expectedStorageDrawersVersion", expectedStorageDrawersVersion);
@@ -154,6 +172,10 @@ public final class OptimizationConfig {
             writer.write("# conversion upgrade no longer disqualifies a network: the index represents its\n");
             writer.write("# ore-dictionary equivalents conservatively instead.\n");
             writer.write("optimizeDrawerNegativeExtraction = " + optimizeDrawerNegativeExtraction + "\n\n");
+            writer.write("optimizeDrawerCandidateNarrowing = " + optimizeDrawerCandidateNarrowing + "\n\n");
+            writer.write("maxCandidateKeysPerController = " + maxCandidateKeysPerController + "\n");
+            writer.write("maxCandidateSlotReferencesPerController = " + maxCandidateSlotReferencesPerController + "\n\n");
+            writer.write("instrumentCandidateIndexVerification = " + instrumentCandidateIndexVerification + "\n\n");
             writer.write("# Seconds between diagnostic dumps to the server log. 0 disables them.\n");
             writer.write("diagnosticsDumpIntervalSeconds = " + diagnosticsDumpIntervalSeconds + "\n\n");
             writer.write("# The mod versions this build is validated against. The drawer optimization reads\n");

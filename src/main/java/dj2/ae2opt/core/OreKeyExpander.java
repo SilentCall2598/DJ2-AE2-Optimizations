@@ -65,6 +65,12 @@ public final class OreKeyExpander {
     }
 
 
+    public static long[] equivalentsOf(ItemStack prototype) {
+        final long literal = DrawerPresenceIndex.key(prototype);
+        return equivalents(literal, prototype);
+    }
+
+
     public static boolean covers(ItemStack prototype, long requestKey) {
         final long literal = DrawerPresenceIndex.key(prototype);
         if (literal == requestKey) {
