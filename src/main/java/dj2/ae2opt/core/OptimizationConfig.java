@@ -42,7 +42,7 @@ public final class OptimizationConfig {
     public static boolean instrumentNetworkMonitor = false;
 
 
-    public static boolean optimizeDrawerNegativeExtraction = false;
+    public static boolean optimizeDrawerNegativeExtraction = true;
 
 
     public static boolean optimizeDrawerCandidateNarrowing = false;
@@ -165,12 +165,12 @@ public final class OptimizationConfig {
             writer.write("# from the probes AE2 performs while deciding where to insert an item. Answers how\n");
             writer.write("# many drawer repositories one high-level operation actually asks. Diagnostic only.\n");
             writer.write("instrumentNetworkFanOut = " + instrumentNetworkFanOut + "\n\n");
-            writer.write("# EXPERIMENTAL, default off. When a Storage Drawers controller provably cannot serve\n");
-            writer.write("# a request, answer empty instead of scanning every drawer slot in the network. Stock\n");
-            writer.write("# runs unchanged for anything uncertain: a non-null predicate, a network containing a\n");
-            writer.write("# unaudited drawer implementation, or an index that is not currently fresh. A\n");
-            writer.write("# conversion upgrade no longer disqualifies a network: the index represents its\n");
-            writer.write("# ore-dictionary equivalents conservatively instead.\n");
+            writer.write("# When a Storage Drawers controller provably cannot serve a request, answer empty\n");
+            writer.write("# instead of scanning every drawer slot in the network. Stock runs unchanged for\n");
+            writer.write("# anything uncertain: a non-null predicate, a network containing an unaudited drawer\n");
+            writer.write("# implementation, or an index that is not currently fresh. A conversion upgrade no\n");
+            writer.write("# longer disqualifies a network: the index represents its ore-dictionary equivalents\n");
+            writer.write("# conservatively instead.\n");
             writer.write("optimizeDrawerNegativeExtraction = " + optimizeDrawerNegativeExtraction + "\n\n");
             writer.write("optimizeDrawerCandidateNarrowing = " + optimizeDrawerCandidateNarrowing + "\n\n");
             writer.write("maxCandidateKeysPerController = " + maxCandidateKeysPerController + "\n");
