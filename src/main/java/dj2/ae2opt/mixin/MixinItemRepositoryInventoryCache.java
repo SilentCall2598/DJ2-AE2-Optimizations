@@ -8,6 +8,7 @@ import appeng.util.item.AEItemStack;
 import com.jaquadro.minecraft.storagedrawers.api.capabilities.IItemRepository;
 import dj2.ae2opt.api.IVersionedItemList;
 import dj2.ae2opt.core.Diagnostics;
+import dj2.ae2opt.core.InventoryDiff;
 import dj2.ae2opt.core.PrototypeEntry;
 import dj2.ae2opt.core.OptimizationConfig;
 import net.minecraft.item.ItemStack;
@@ -188,15 +189,29 @@ public abstract class MixinItemRepositoryInventoryCache {
 
         final List<IAEItemStack> changes = new ArrayList<IAEItemStack>();
 
-        for (IAEItemStack is : this.currentlyCached) {
-            is.setStackSize(-is.getStackSize());
-        }
-        for (IAEItemStack is : currentlyOnStorage) {
-            this.currentlyCached.add(is);
-        }
-        for (IAEItemStack is : this.currentlyCached) {
-            if (is.getStackSize() != 0L) {
-                changes.add(is);
+        final boolean useDirectDiff = OptimizationConfig.optimizeDrawerInventoryDiff
+                && !this.dj2ae2opt$templatesDisabled
+                && this.dj2ae2opt$stability == DJ2AE2OPT$CONFIRMED;
+
+        if (useDirectDiff) {
+            InventoryDiff.compute(
+                    currentlyOnStorage, this.currentlyCached::findPrecise,
+                    this.currentlyCached, currentlyOnStorage::findPrecise,
+                    IAEItemStack::getStackSize,
+                    (identity, delta) -> identity.copy().setStackSize(delta),
+                    changes);
+            Diagnostics.directDiffPollUsed();
+        } else {
+            for (IAEItemStack is : this.currentlyCached) {
+                is.setStackSize(-is.getStackSize());
+            }
+            for (IAEItemStack is : currentlyOnStorage) {
+                this.currentlyCached.add(is);
+            }
+            for (IAEItemStack is : this.currentlyCached) {
+                if (is.getStackSize() != 0L) {
+                    changes.add(is);
+                }
             }
         }
         this.currentlyCached = currentlyOnStorage;

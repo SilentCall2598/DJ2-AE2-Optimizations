@@ -638,11 +638,11 @@ public final class CandidateIndexTest {
                 !verify(indexed, null), "expected verification failure on refusal");
     }
 
-    static void verificationDefaultsDisabled() {
+    static void shippedDefaultsMatchProduction() {
         check("candidate index verification ships disabled",
                 !OptimizationConfig.instrumentCandidateIndexVerification, "expected false by default");
-        check("candidate narrowing ships disabled",
-                !OptimizationConfig.optimizeDrawerCandidateNarrowing, "expected false by default");
+        check("candidate narrowing ships enabled",
+                OptimizationConfig.optimizeDrawerCandidateNarrowing, "expected true by default");
     }
 
 
@@ -726,7 +726,7 @@ public final class CandidateIndexTest {
         invariantFallbackOnMissingEntry();
         invalidationRebuildsTheCandidateIndex();
         verificationComparesIndexedAgainstRecomputedArrays();
-        verificationDefaultsDisabled();
+        shippedDefaultsMatchProduction();
         randomizedOracleSweep();
 
         System.out.println(failures == 0 ? "\nCandidateIndexTest: ALL PASS"

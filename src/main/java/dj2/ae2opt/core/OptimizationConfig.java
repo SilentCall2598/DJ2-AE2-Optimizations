@@ -21,6 +21,9 @@ public final class OptimizationConfig {
     public static boolean optimizeDrawerInventoryPolling = true;
 
 
+    public static boolean optimizeDrawerInventoryDiff = false;
+
+
     public static boolean skipUnchangedDrawerPolls = false;
 
 
@@ -97,6 +100,7 @@ public final class OptimizationConfig {
         }
 
         optimizeDrawerInventoryPolling = bool(properties, "optimizeDrawerInventoryPolling", optimizeDrawerInventoryPolling);
+        optimizeDrawerInventoryDiff = bool(properties, "optimizeDrawerInventoryDiff", optimizeDrawerInventoryDiff);
         skipUnchangedDrawerPolls = bool(properties, "skipUnchangedDrawerPolls", skipUnchangedDrawerPolls);
         autoDisableTemplateCacheOnLowHitRate = bool(properties, "autoDisableTemplateCacheOnLowHitRate", autoDisableTemplateCacheOnLowHitRate);
         maxLivePrototypesPerBus = clamp(integer(properties, "maxLivePrototypesPerBus", maxLivePrototypesPerBus), 64, 1048576);
@@ -135,6 +139,12 @@ public final class OptimizationConfig {
             writer.write("# Reuse the AE item conversion for an unchanged Storage Drawers prototype instead of\n");
             writer.write("# running AEItemStack.fromItemStack and the AEItemStackRegistry lookup every poll.\n");
             writer.write("optimizeDrawerInventoryPolling = " + optimizeDrawerInventoryPolling + "\n\n");
+            writer.write("# EXPERIMENTAL. Once prototype identity is confirmed stable, compute the tick diff by\n");
+            writer.write("# reading old and new values through IItemList.findPrecise instead of negating every\n");
+            writer.write("# cached entry, merging the new poll into it, and discarding the merged structure.\n");
+            writer.write("# Removes that per-tick throwaway allocation; falls back to the exact prior cycle\n");
+            writer.write("# whenever identity has not yet been confirmed stable for this storage bus.\n");
+            writer.write("optimizeDrawerInventoryDiff = " + optimizeDrawerInventoryDiff + "\n\n");
             writer.write("# EXPERIMENTAL. Skip the rebuild entirely when the drawers report the same prototypes\n");
             writer.write("# and counts as the previous poll and nothing has mutated the cached list since.\n");
             writer.write("# Measured on a real DJ2 base: only 15.2 percent of polls qualified, and proving the\n");

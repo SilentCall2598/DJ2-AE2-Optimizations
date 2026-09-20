@@ -139,6 +139,7 @@ public final class Diagnostics {
     public static long pollsSkipped;
     public static long pollsRebuilt;
     public static long changesPosted;
+    public static long directDiffPolls;
     public static long templateHits;
     public static long templateMisses;
     public static long templateCachePrunes;
@@ -539,6 +540,14 @@ public final class Diagnostics {
         changesPosted += changes;
     }
 
+    public static void directDiffPollUsed() {
+        directDiffPolls++;
+        if (directDiffPolls == 1) {
+            RUNTIME.info("ACTIVE: first InventoryCache poll diffed via findPrecise lookups instead of "
+                    + "the negate/merge/discard cycle.");
+        }
+    }
+
     public static void pollFailed(Throwable t) {
         if (pollFailures++ == 0) {
             LOG.warn("IItemRepository.getAllItems() failed; leaving this storage bus on AE2's own path", t);
@@ -772,6 +781,11 @@ public final class Diagnostics {
         List<String> lines = new ArrayList<String>();
         lines.add(String.format("drawer polls      : %d total, %d rebuilt, %d skipped (%s), %d change entries posted",
                 polls, pollsRebuilt, pollsSkipped, percent(pollsSkipped, polls), changesPosted));
+        if (OptimizationConfig.optimizeDrawerInventoryDiff) {
+            lines.add(String.format("direct diff       : %d of %d rebuilt polls used findPrecise diffing (%s); "
+                    + "the rest fell back to the negate/merge cycle pending confirmed identity stability",
+                    directDiffPolls, pollsRebuilt, percent(directDiffPolls, pollsRebuilt)));
+        }
         lines.add(String.format("conversion cache  : %d hits, %d misses (%s hit rate)",
                 templateHits, templateMisses, percent(templateHits, lookups)));
         lines.add(String.format("cache stability   : %d buses confirmed stable, %d disabled for unstable "

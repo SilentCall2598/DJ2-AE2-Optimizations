@@ -136,6 +136,8 @@ public final class MixinStatus {
         lines.add("  " + pad("identity stability sampling")
                 + (OptimizationConfig.autoDisableTemplateCacheOnLowHitRate ? "ENABLED" : "BYPASSED"));
         lines.add("  " + pad("max live prototypes / bus") + OptimizationConfig.maxLivePrototypesPerBus);
+        lines.add("  " + pad("inventory diff via findPrecise")
+                + (OptimizationConfig.optimizeDrawerInventoryDiff ? "ENABLED" : "DISABLED"));
         lines.add("  " + pad("candidate-slot narrowing")
                 + (OptimizationConfig.optimizeDrawerCandidateNarrowing ? "ENABLED" : "DISABLED"));
         lines.add("  " + pad("candidate index verification")
