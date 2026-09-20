@@ -21,7 +21,7 @@ public final class OptimizationConfig {
     public static boolean optimizeDrawerInventoryPolling = true;
 
 
-    public static boolean optimizeDrawerInventoryDiff = false;
+    public static boolean optimizeDrawerInventoryDiff = true;
 
 
     public static boolean skipUnchangedDrawerPolls = false;
@@ -61,6 +61,12 @@ public final class OptimizationConfig {
 
 
     public static boolean instrumentNetworkFanOut = false;
+
+
+    public static boolean instrumentItemHandlerExtraction = false;
+
+
+    public static int maxItemHandlerClassesTracked = 256;
 
 
     public static int diagnosticsDumpIntervalSeconds = 0;
@@ -111,6 +117,10 @@ public final class OptimizationConfig {
                 instrumentNegativePhase2Matchers);
         instrumentNetworkMonitor = bool(properties, "instrumentNetworkMonitor", instrumentNetworkMonitor);
         instrumentNetworkFanOut = bool(properties, "instrumentNetworkFanOut", instrumentNetworkFanOut);
+        instrumentItemHandlerExtraction = bool(properties, "instrumentItemHandlerExtraction",
+                instrumentItemHandlerExtraction);
+        maxItemHandlerClassesTracked = clamp(integer(properties, "maxItemHandlerClassesTracked",
+                maxItemHandlerClassesTracked), 8, 16384);
         optimizeDrawerNegativeExtraction = bool(properties, "optimizeDrawerNegativeExtraction", optimizeDrawerNegativeExtraction);
         optimizeDrawerCandidateNarrowing = bool(properties, "optimizeDrawerCandidateNarrowing", optimizeDrawerCandidateNarrowing);
         instrumentCandidateIndexVerification = bool(properties, "instrumentCandidateIndexVerification",
@@ -139,11 +149,11 @@ public final class OptimizationConfig {
             writer.write("# Reuse the AE item conversion for an unchanged Storage Drawers prototype instead of\n");
             writer.write("# running AEItemStack.fromItemStack and the AEItemStackRegistry lookup every poll.\n");
             writer.write("optimizeDrawerInventoryPolling = " + optimizeDrawerInventoryPolling + "\n\n");
-            writer.write("# EXPERIMENTAL. Once prototype identity is confirmed stable, compute the tick diff by\n");
-            writer.write("# reading old and new values through IItemList.findPrecise instead of negating every\n");
-            writer.write("# cached entry, merging the new poll into it, and discarding the merged structure.\n");
-            writer.write("# Removes that per-tick throwaway allocation; falls back to the exact prior cycle\n");
-            writer.write("# whenever identity has not yet been confirmed stable for this storage bus.\n");
+            writer.write("# Once prototype identity is confirmed stable, compute the tick diff by reading old\n");
+            writer.write("# and new values through IItemList.findPrecise instead of negating every cached entry,\n");
+            writer.write("# merging the new poll into it, and discarding the merged structure. Removes that\n");
+            writer.write("# per-tick throwaway allocation; falls back to the exact prior cycle whenever identity\n");
+            writer.write("# has not yet been confirmed stable for this storage bus.\n");
             writer.write("optimizeDrawerInventoryDiff = " + optimizeDrawerInventoryDiff + "\n\n");
             writer.write("# EXPERIMENTAL. Skip the rebuild entirely when the drawers report the same prototypes\n");
             writer.write("# and counts as the previous poll and nothing has mutated the cached list since.\n");
@@ -175,6 +185,12 @@ public final class OptimizationConfig {
             writer.write("# from the probes AE2 performs while deciding where to insert an item. Answers how\n");
             writer.write("# many drawer repositories one high-level operation actually asks. Diagnostic only.\n");
             writer.write("instrumentNetworkFanOut = " + instrumentNetworkFanOut + "\n\n");
+            writer.write("# Aggregate ItemHandlerAdapter.extractItems calls against generic Forge IItemHandler\n");
+            writer.write("# storage buses by concrete handler class: request counts, slots examined, and\n");
+            writer.write("# success/failure, to identify which handler classes dominate that cost before any\n");
+            writer.write("# optimization is attempted. Diagnostic only; nothing it computes changes extraction.\n");
+            writer.write("instrumentItemHandlerExtraction = " + instrumentItemHandlerExtraction + "\n");
+            writer.write("maxItemHandlerClassesTracked = " + maxItemHandlerClassesTracked + "\n\n");
             writer.write("# When a Storage Drawers controller provably cannot serve a request, answer empty\n");
             writer.write("# instead of scanning every drawer slot in the network. Stock runs unchanged for\n");
             writer.write("# anything uncertain: a non-null predicate, a network containing an unaudited drawer\n");

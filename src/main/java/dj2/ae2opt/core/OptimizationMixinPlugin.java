@@ -74,6 +74,9 @@ public final class OptimizationMixinPlugin implements IMixinConfigPlugin {
             return OptimizationConfig.optimizeDrawerNegativeExtraction
                     && OptimizationConfig.instrumentNegativePhase2Matchers;
         }
+        if (mixinClassName.endsWith("MixinItemHandlerAdapterExtractionDiagnostics")) {
+            return OptimizationConfig.instrumentItemHandlerExtraction;
+        }
         return true;
     }
 

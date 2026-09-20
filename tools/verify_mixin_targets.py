@@ -159,6 +159,14 @@ def parse_field_target(target):
     return m.group(1), m.group(2), m.group(3)
 
 
+def parse_method_target(target):
+
+    m = re.match(r"^L([^;]+);([^(:]+)(\(.+)$", target or "")
+    if not m:
+        return None
+    return m.group(1), m.group(2), m.group(3)
+
+
 def target_method_bodies(binary_name, classpath):
 
 
@@ -316,6 +324,41 @@ def selftest():
     else:
         print("pass  a @Redirect field target is parsed with its opcode and require")
 
+    invoke_redirect_text = """
+        org.spongepowered.asm.mixin.injection.Redirect(
+          method=["extractItems(Lappeng/api/storage/data/IAEItemStack;Lappeng/api/config/Actionable;Lappeng/api/networking/security/IActionSource;)Lappeng/api/storage/data/IAEItemStack;"]
+          at=[@org.spongepowered.asm.mixin.injection.At(
+            value="INVOKE"
+            target="Lnet/minecraftforge/items/IItemHandler;getStackInSlot(I)Lnet/minecraft/item/ItemStack;"
+          )]
+          require=1
+        )
+"""
+    invoke_redirects, invoke_errs = parse_redirects(invoke_redirect_text)
+    invoke_expected = [("extractItems(Lappeng/api/storage/data/IAEItemStack;"
+                        "Lappeng/api/config/Actionable;Lappeng/api/networking/security/IActionSource;)"
+                        "Lappeng/api/storage/data/IAEItemStack;", "INVOKE",
+                        "Lnet/minecraftforge/items/IItemHandler;getStackInSlot(I)Lnet/minecraft/item/ItemStack;",
+                        None, 1)]
+    if invoke_errs or invoke_redirects != invoke_expected:
+        failures.append("@Redirect INVOKE: parsed %s errors=%s" % (invoke_redirects, invoke_errs))
+    elif parse_method_target(invoke_expected[0][2]) != (
+            "net/minecraftforge/items/IItemHandler", "getStackInSlot", "(I)Lnet/minecraft/item/ItemStack;"):
+        failures.append("@Redirect method target split is wrong")
+    else:
+        print("pass  a @Redirect INVOKE target is parsed with its method descriptor and require")
+
+    invoke_body = ("   5: invokeinterface #34,  2  "
+                   "// InterfaceMethod net/minecraftforge/items/IItemHandler.getStackInSlot:"
+                   "(I)Lnet/minecraft/item/ItemStack;")
+    invoke_pattern = r"invoke\w+.*(?:Interface)?Method %s\.%s:%s" % (
+        re.escape("net/minecraftforge/items/IItemHandler"), re.escape("getStackInSlot"),
+        re.escape("(I)Lnet/minecraft/item/ItemStack;"))
+    if len(re.findall(invoke_pattern, invoke_body)) != 1:
+        failures.append("@Redirect INVOKE site pattern did not match a real javap disassembly line")
+    else:
+        print("pass  a @Redirect INVOKE call site is recognized in javap disassembly output")
+
     shadow_method = """{
   public abstract com.jaquadro...IDrawer getDrawer(int);
     descriptor: (I)Lcom/jaquadro/minecraft/storagedrawers/api/storage/IDrawer;
@@ -391,9 +434,16 @@ def main():
 
     jar_entries = set()
     for jar in jars:
-        with zipfile.ZipFile(jar) as z:
-            jar_entries.update(n[:-6].replace("/", ".") for n in z.namelist()
-                               if n.endswith(".class"))
+        if os.path.isdir(jar):
+            for root, _dirs, files in os.walk(jar):
+                for f in files:
+                    if f.endswith(".class"):
+                        rel = os.path.relpath(os.path.join(root, f), jar)
+                        jar_entries.add(rel[:-6].replace(os.sep, ".").replace("/", "."))
+        else:
+            with zipfile.ZipFile(jar) as z:
+                jar_entries.update(n[:-6].replace("/", ".") for n in z.namelist()
+                                   if n.endswith(".class"))
 
     errors, warnings, checked = [], [], 0
     if not mixin_classes:
@@ -463,42 +513,71 @@ def main():
                 if key not in methods:
                     errors.append("%s: @Redirect method %s does not exist in %s" % (short, spec, target))
                     continue
-                if at != "FIELD":
+                if at == "FIELD":
+                    parsed = parse_field_target(at_target)
+                    if parsed is None:
+                        errors.append("%s: @Redirect field target %r is unparseable" % (short, at_target))
+                        continue
+                    owner, fname, fdesc = parsed
+                    owner_binary = owner.replace("/", ".")
+                    if owner_binary not in jar_entries:
+                        errors.append("%s: @Redirect field owner %s is not in any supplied jar"
+                                      % (short, owner_binary))
+                        continue
+                    _om, ofields = target_members(owner_binary, classpath)
+                    if ofields is None or fname not in ofields:
+                        errors.append("%s: @Redirect field %s.%s does not exist" % (short, owner_binary, fname))
+                        continue
+                    if ofields[fname] != fdesc:
+                        errors.append("%s: @Redirect field %s.%s is %s but the target declares %s"
+                                      % (short, owner_binary, fname, fdesc, ofields[fname]))
+                        continue
+                    if bodies is None:
+                        bodies = target_method_bodies(target, classpath) or {}
+                    body = bodies.get(key, "")
+                    op = {180: "getfield", 181: "putfield"}.get(opcode)
+                    pattern = r"\b%s\b.*Field %s\.%s:%s" % (op or "(get|put)field",
+                                                              re.escape(owner), re.escape(fname),
+                                                              re.escape(fdesc))
+                    sites = len(re.findall(pattern, body))
+                    print("      REDIRECT %2d site(s)  require=%-4s %s.%s" % (sites, require, owner.split("/")[-1], fname))
+                    if sites == 0:
+                        errors.append("%s: @Redirect target %s.%s is never read in %s"
+                                      % (short, owner_binary, fname, spec))
+                    elif require is not None and sites != require:
+                        errors.append("%s: @Redirect on %s.%s has %d sites in %s but require=%d"
+                                      % (short, owner_binary, fname, sites, spec, require))
+                elif at == "INVOKE":
+                    parsed = parse_method_target(at_target)
+                    if parsed is None:
+                        errors.append("%s: @Redirect method target %r is unparseable" % (short, at_target))
+                        continue
+                    owner, iname, idesc = parsed
+                    owner_binary = owner.replace("/", ".")
+                    if owner_binary not in jar_entries:
+                        errors.append("%s: @Redirect method owner %s is not in any supplied jar"
+                                      % (short, owner_binary))
+                        continue
+                    omethods, _of = target_members(owner_binary, classpath)
+                    if omethods is None or (iname, idesc) not in omethods:
+                        errors.append("%s: @Redirect method %s.%s%s does not exist"
+                                      % (short, owner_binary, iname, idesc))
+                        continue
+                    if bodies is None:
+                        bodies = target_method_bodies(target, classpath) or {}
+                    body = bodies.get(key, "")
+                    pattern = r"invoke\w+.*(?:Interface)?Method %s\.%s:%s" % (
+                        re.escape(owner), re.escape(iname), re.escape(idesc))
+                    sites = len(re.findall(pattern, body))
+                    print("      REDIRECT %2d site(s)  require=%-4s %s.%s" % (sites, require, owner.split("/")[-1], iname))
+                    if sites == 0:
+                        errors.append("%s: @Redirect target %s.%s is never called in %s"
+                                      % (short, owner_binary, iname, spec))
+                    elif require is not None and sites != require:
+                        errors.append("%s: @Redirect on %s.%s has %d sites in %s but require=%d"
+                                      % (short, owner_binary, iname, sites, spec, require))
+                else:
                     warnings.append("%s: @Redirect at %s is not verified by this tool" % (short, at))
-                    continue
-                parsed = parse_field_target(at_target)
-                if parsed is None:
-                    errors.append("%s: @Redirect field target %r is unparseable" % (short, at_target))
-                    continue
-                owner, fname, fdesc = parsed
-                owner_binary = owner.replace("/", ".")
-                if owner_binary not in jar_entries:
-                    errors.append("%s: @Redirect field owner %s is not in any supplied jar"
-                                  % (short, owner_binary))
-                    continue
-                _om, ofields = target_members(owner_binary, classpath)
-                if ofields is None or fname not in ofields:
-                    errors.append("%s: @Redirect field %s.%s does not exist" % (short, owner_binary, fname))
-                    continue
-                if ofields[fname] != fdesc:
-                    errors.append("%s: @Redirect field %s.%s is %s but the target declares %s"
-                                  % (short, owner_binary, fname, fdesc, ofields[fname]))
-                    continue
-                if bodies is None:
-                    bodies = target_method_bodies(target, classpath) or {}
-                body = bodies.get(key, "")
-                op = {180: "getfield", 181: "putfield"}.get(opcode)
-                pattern = r"\b%s\b.*Field %s\.%s:%s" % (op or "(get|put)field",
-                                                          re.escape(owner), re.escape(fname),
-                                                          re.escape(fdesc))
-                sites = len(re.findall(pattern, body))
-                print("      REDIRECT %2d site(s)  require=%-4s %s.%s" % (sites, require, owner.split("/")[-1], fname))
-                if sites == 0:
-                    errors.append("%s: @Redirect target %s.%s is never read in %s"
-                                  % (short, owner_binary, fname, spec))
-                elif require is not None and sites != require:
-                    errors.append("%s: @Redirect on %s.%s has %d sites in %s but require=%d"
-                                  % (short, owner_binary, fname, sites, spec, require))
 
             for mname, mdesc in shadow_methods:
                 checked += 1

@@ -4,6 +4,8 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
@@ -133,6 +135,7 @@ public final class Diagnostics {
     private static boolean loggedSkip;
     private static boolean loggedExtractionDiagnostics;
     private static boolean loggedPoweredExtractionContext;
+    private static boolean loggedItemHandlerExtraction;
 
     private static long serverTicks;
 
@@ -150,6 +153,7 @@ public final class Diagnostics {
     public static long templateCachesConfirmed;
     public static long fallbackConversions;
     public static long pollFailures;
+    public static long itemHandlerExtractionsObserved;
 
 
     public static long extractionCalls;
@@ -554,6 +558,15 @@ public final class Diagnostics {
         }
     }
 
+    public static void itemHandlerExtractionObserved() {
+        itemHandlerExtractionsObserved++;
+        if (!loggedItemHandlerExtraction) {
+            loggedItemHandlerExtraction = true;
+            RUNTIME.info("ACTIVE: first generic ItemHandlerAdapter.extractItems call observed for "
+                    + "the item-handler extraction diagnostic.");
+        }
+    }
+
     public static void templateHit() {
         templateHits++;
         if (!loggedTemplateHit) {
@@ -897,7 +910,61 @@ public final class Diagnostics {
                     presenceEpochBumps, EPOCH_BUMPS[EPOCH_STANDARD],
                     EPOCH_BUMPS[EPOCH_COMPACTING], EPOCH_BUMPS[EPOCH_ATTRIBUTES]));
         }
+        if (OptimizationConfig.instrumentItemHandlerExtraction) {
+            lines.addAll(itemHandlerExtractionLines());
+        }
         lines.add("counter store     : " + STORE_ID);
+        return lines;
+    }
+
+    private static List<String> itemHandlerExtractionLines() {
+        List<String> lines = new ArrayList<String>();
+        lines.add("-- ItemHandlerAdapter.extractItems (generic IItemHandler storage buses) --");
+        List<ItemHandlerExtractionStats.HandlerStats> ranked = ItemHandlerExtractionStats.snapshot();
+        Collections.sort(ranked, new Comparator<ItemHandlerExtractionStats.HandlerStats>() {
+            @Override
+            public int compare(ItemHandlerExtractionStats.HandlerStats a, ItemHandlerExtractionStats.HandlerStats b) {
+                return Long.compare(b.slotsExamined, a.slotsExamined);
+            }
+        });
+        long totalRequests = 0;
+        long totalSlots = 0;
+        long totalSuccessful = 0;
+        for (ItemHandlerExtractionStats.HandlerStats stats : ranked) {
+            totalRequests += stats.requests;
+            totalSlots += stats.slotsExamined;
+            totalSuccessful += stats.successfulRequests;
+        }
+        lines.add(String.format("observed calls    : %d total, %d successful (%s)",
+                totalRequests, totalSuccessful, percent(totalSuccessful, totalRequests)));
+        lines.add(String.format("tracked classes   : %d of max %d%s",
+                ItemHandlerExtractionStats.trackedClassCount(), OptimizationConfig.maxItemHandlerClassesTracked,
+                ItemHandlerExtractionStats.isOverflowing()
+                        ? String.format(" (cap reached; %d request(s) / %d slot(s) uncounted beyond the cap)",
+                                ItemHandlerExtractionStats.overflowRequests(),
+                                ItemHandlerExtractionStats.overflowSlotsExamined())
+                        : ""));
+        int rank = 0;
+        for (ItemHandlerExtractionStats.HandlerStats stats : ranked) {
+            if (++rank > 10) {
+                lines.add(String.format("  ... %d more tracked handler class(es), see full snapshot if needed",
+                        ranked.size() - 10));
+                break;
+            }
+            double avgSlots = stats.requests == 0 ? 0.0 : (double) stats.slotsExamined / stats.requests;
+            lines.add(String.format("  %d. %s%s", rank, stats.handlerClassName,
+                    stats.ownerClassName == null ? "" : " (owner: " + stats.ownerClassName + ")"));
+            lines.add(String.format("     %d requests, %d slots examined (%.2f avg/request), "
+                    + "%d successful / %d unsuccessful (%s)",
+                    stats.requests, stats.slotsExamined, avgSlots,
+                    stats.successfulRequests, stats.unsuccessfulRequests,
+                    percent(stats.successfulRequests, stats.requests)));
+            if (stats.requestedAmount > 0) {
+                lines.add(String.format("     requested %,d / extracted %,d items",
+                        stats.requestedAmount, stats.extractedAmount));
+            }
+        }
+        lines.add(String.format("total slot scans  : %d across all tracked handler classes", totalSlots));
         return lines;
     }
 

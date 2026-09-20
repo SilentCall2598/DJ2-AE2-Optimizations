@@ -14,6 +14,7 @@ public final class OptimizationMixinLoader implements ILateMixinLoader {
     public static final String FAN_OUT_CONFIG = "mixins.dj2ae2opt.fanout.json";
     public static final String NEGATIVE_EXTRACT_CONFIG = "mixins.dj2ae2opt.negativeextract.json";
     public static final String NEGATIVE_PHASE2_CONFIG = "mixins.dj2ae2opt.negativephase2.json";
+    public static final String ITEM_HANDLER_EXTRACTION_CONFIG = "mixins.dj2ae2opt.itemhandler.json";
 
     @Override
     public List<String> getMixinConfigs() {
@@ -26,6 +27,7 @@ public final class OptimizationMixinLoader implements ILateMixinLoader {
         final boolean fanOut = OptimizationConfig.instrumentNetworkFanOut;
         final boolean negative = OptimizationConfig.optimizeDrawerNegativeExtraction;
         final boolean phase2Matchers = negative && OptimizationConfig.instrumentNegativePhase2Matchers;
+        final boolean itemHandlerExtraction = OptimizationConfig.instrumentItemHandlerExtraction;
 
         MixinStatus.markRequested(MixinStatus.Feature.ITEM_REPOSITORY_CACHE, cache);
         MixinStatus.markRequested(MixinStatus.Feature.ITEM_LIST_VERSION, skip);
@@ -44,8 +46,9 @@ public final class OptimizationMixinLoader implements ILateMixinLoader {
         MixinStatus.markRequested(MixinStatus.Feature.NEGATIVE_FRACTIONAL, negative);
         MixinStatus.markRequested(MixinStatus.Feature.NEGATIVE_PHASE2_MATCHERS, phase2Matchers);
         MixinStatus.markRequested(MixinStatus.Feature.NEGATIVE_PHASE2_EXIT, phase2Matchers);
+        MixinStatus.markRequested(MixinStatus.Feature.ITEM_HANDLER_EXTRACTION, itemHandlerExtraction);
 
-        List<String> configs = new ArrayList<String>(6);
+        List<String> configs = new ArrayList<String>(7);
         configs.add(OPTIMIZATION_CONFIG);
         if (extraction) {
             configs.add(EXTRACTION_CONFIG);
@@ -61,6 +64,9 @@ public final class OptimizationMixinLoader implements ILateMixinLoader {
         }
         if (phase2Matchers) {
             configs.add(NEGATIVE_PHASE2_CONFIG);
+        }
+        if (itemHandlerExtraction) {
+            configs.add(ITEM_HANDLER_EXTRACTION_CONFIG);
         }
         return configs;
     }
