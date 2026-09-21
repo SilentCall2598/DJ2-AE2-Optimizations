@@ -136,6 +136,7 @@ public final class Diagnostics {
     private static boolean loggedExtractionDiagnostics;
     private static boolean loggedPoweredExtractionContext;
     private static boolean loggedItemHandlerExtraction;
+    private static boolean loggedExternalHandlerNegative;
 
     private static long serverTicks;
 
@@ -154,6 +155,10 @@ public final class Diagnostics {
     public static long fallbackConversions;
     public static long pollFailures;
     public static long itemHandlerExtractionsObserved;
+    public static long externalHandlerNegativeConsidered;
+    public static long externalHandlerNegativeServed;
+    public static long externalHandlerPresenceInvalidations;
+    public static long externalHandlerPresenceBuildFailures;
 
 
     public static long extractionCalls;
@@ -567,6 +572,27 @@ public final class Diagnostics {
         }
     }
 
+    public static void externalHandlerNegativeConsidered() {
+        externalHandlerNegativeConsidered++;
+    }
+
+    public static void externalHandlerNegativeServed() {
+        externalHandlerNegativeServed++;
+        if (!loggedExternalHandlerNegative) {
+            loggedExternalHandlerNegative = true;
+            RUNTIME.info("ACTIVE: first proven-absent ItemHandlerAdapter.extractItems request served "
+                    + "empty without scanning the handler.");
+        }
+    }
+
+    public static void externalHandlerPresenceInvalidated() {
+        externalHandlerPresenceInvalidations++;
+    }
+
+    public static void externalHandlerPresenceBuildFailed() {
+        externalHandlerPresenceBuildFailures++;
+    }
+
     public static void templateHit() {
         templateHits++;
         if (!loggedTemplateHit) {
@@ -913,7 +939,23 @@ public final class Diagnostics {
         if (OptimizationConfig.instrumentItemHandlerExtraction) {
             lines.addAll(itemHandlerExtractionLines());
         }
+        if (OptimizationConfig.optimizeExternalItemHandlerNegativeExtraction) {
+            lines.addAll(externalHandlerNegativeLines());
+        }
         lines.add("counter store     : " + STORE_ID);
+        return lines;
+    }
+
+    private static List<String> externalHandlerNegativeLines() {
+        List<String> lines = new ArrayList<String>();
+        lines.add("-- external IItemHandler negative fast path (Ender Utilities / Actually Additions) --");
+        lines.add(String.format("negative fast path: %d eligible, %d served (%s)",
+                externalHandlerNegativeConsidered, externalHandlerNegativeServed,
+                percent(externalHandlerNegativeServed, externalHandlerNegativeConsidered)));
+        lines.add(String.format("presence upkeep   : %d invalidations, %d build failures (falls open to stock)",
+                externalHandlerPresenceInvalidations, externalHandlerPresenceBuildFailures));
+        lines.add(String.format("integration mods  : Ender Utilities %s, Actually Additions %s",
+                CompatibilityCheck.checkEnderUtilities(), CompatibilityCheck.checkActuallyAdditions()));
         return lines;
     }
 

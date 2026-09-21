@@ -3,10 +3,12 @@ build/
 run/
 libs/*.jar
 !libs/.gitkeep
-# the two pack jars the mixins compile against are kept in the archive on purpose
+# the pack jars the mixins compile against are kept in the archive on purpose
 !libs/ae2-uel-v0.56.4.jar
 !libs/StorageDrawers-1.12.2-5.5.0.jar
 !libs/framedcompactdrawers-1.2.7.jar
+!libs/enderutilities-1.12.2-0.7.15.jar
+!libs/ActuallyAdditions-1.12.2-r152.jar
 .idea/
 *.iml
 out/

@@ -44,14 +44,17 @@ dependencies {
     annotationProcessor 'com.google.guava:guava:32.1.2-jre'
     annotationProcessor 'com.google.code.gson:gson:2.8.9'
 
-    packJars files("libs/${project.ae2_jar}", "libs/${project.storagedrawers_jar}")
+    packJars files("libs/${project.ae2_jar}", "libs/${project.storagedrawers_jar}",
+            "libs/${project.enderutilities_jar}", "libs/${project.actuallyadditions_jar}")
 }
 
 tasks.register('verifyLocalDependencies') {
     description = 'Checks that libs/ holds exactly the pack jars the mixins compile against.'
     doLast {
         List<String> missing = []
-        [ae2_jar: project.ae2_jar, storagedrawers_jar: project.storagedrawers_jar].each { key, name ->
+        [ae2_jar: project.ae2_jar, storagedrawers_jar: project.storagedrawers_jar,
+         enderutilities_jar: project.enderutilities_jar, actuallyadditions_jar: project.actuallyadditions_jar]
+                .each { key, name ->
             if (!name) {
                 missing << "${key} is not set in gradle.properties"
             } else if (!file("libs/${name}").exists()) {
@@ -63,14 +66,17 @@ tasks.register('verifyLocalDependencies') {
             throw new GradleException(
                     'Missing compile dependencies:\n  ' + missing.join('\n  ') +
                     '\nlibs/ currently holds: ' + (present.isEmpty() ? '(nothing)' : present.join(', ')) +
-                    '\n\nCopy the jars out of your Divine Journey 2 instance. Both are pinned by exact ' +
-                    'filename on purpose: the mixins read AE2 UEL internals by name, and the drawer ' +
-                    'conversion cache depends on Storage Drawers prototype behavior, so compiling ' +
-                    'against a different build would produce a jar that applies cleanly and is wrong. ' +
-                    'If your filenames differ, edit ae2_jar / storagedrawers_jar in gradle.properties ' +
-                    'and the matching expected*Version keys in config/dj2ae2opt.cfg.')
+                    '\n\nCopy the jars out of your Divine Journey 2 instance. All four are pinned by exact ' +
+                    'filename on purpose: the mixins read internals by name, and Mixin resolves every ' +
+                    '@Mixin target class at compile time even for optional, runtime-absent integrations, ' +
+                    'so Ender Utilities and Actually Additions are compile-time requirements here even ' +
+                    'though neither is required for the mod to run. Compiling against a different build ' +
+                    'would produce a jar that applies cleanly and is wrong. If your filenames differ, edit ' +
+                    'the four *_jar properties in gradle.properties and the matching expected*Version keys ' +
+                    'in config/dj2ae2opt.cfg.')
         }
-        logger.lifecycle("Compiling against ${project.ae2_jar} and ${project.storagedrawers_jar}")
+        logger.lifecycle("Compiling against ${project.ae2_jar}, ${project.storagedrawers_jar}, " +
+                "${project.enderutilities_jar}, and ${project.actuallyadditions_jar}")
     }
 }
 

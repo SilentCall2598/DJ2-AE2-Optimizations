@@ -77,6 +77,18 @@ public final class OptimizationMixinPlugin implements IMixinConfigPlugin {
         if (mixinClassName.endsWith("MixinItemHandlerAdapterExtractionDiagnostics")) {
             return OptimizationConfig.instrumentItemHandlerExtraction;
         }
+        if (mixinClassName.endsWith("MixinItemHandlerAdapterNegativeExtract")) {
+            return OptimizationConfig.optimizeExternalItemHandlerNegativeExtraction;
+        }
+        if (mixinClassName.endsWith("MixinEnderUtilitiesItemStackHandlerBasic")
+                || mixinClassName.endsWith("MixinEnderUtilitiesWrapperSize")) {
+            return OptimizationConfig.optimizeExternalItemHandlerNegativeExtraction
+                    && CompatibilityCheck.isUsable(CompatibilityCheck.checkEnderUtilities());
+        }
+        if (mixinClassName.endsWith("MixinActuallyAdditionsTileStackHandler")) {
+            return OptimizationConfig.optimizeExternalItemHandlerNegativeExtraction
+                    && CompatibilityCheck.isUsable(CompatibilityCheck.checkActuallyAdditions());
+        }
         return true;
     }
 

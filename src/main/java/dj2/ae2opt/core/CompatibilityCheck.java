@@ -10,6 +10,8 @@ public final class CompatibilityCheck {
 
     public static final String AE2_MOD_ID = "appliedenergistics2";
     public static final String DRAWERS_MOD_ID = "storagedrawers";
+    public static final String ENDER_UTILITIES_MOD_ID = "enderutilities";
+    public static final String ACTUALLY_ADDITIONS_MOD_ID = "actuallyadditions";
 
     private CompatibilityCheck() {
     }
@@ -18,6 +20,8 @@ public final class CompatibilityCheck {
 
     private static Support earlyResult;
     private static boolean loggedEarlyRefusal;
+    private static Support enderUtilitiesResult;
+    private static Support actuallyAdditionsResult;
 
 
     public static synchronized Support checkEarly() {
@@ -75,6 +79,43 @@ public final class CompatibilityCheck {
                 AE2_MOD_ID, OptimizationConfig.expectedAe2Version,
                 DRAWERS_MOD_ID, OptimizationConfig.expectedStorageDrawersVersion,
                 OptimizationConfig.FILE_NAME);
+    }
+
+    public static synchronized Support checkEnderUtilities() {
+        if (enderUtilitiesResult == null) {
+            enderUtilitiesResult = checkOptionalMod(ENDER_UTILITIES_MOD_ID,
+                    OptimizationConfig.expectedEnderUtilitiesVersion, "Ender Utilities");
+        }
+        return enderUtilitiesResult;
+    }
+
+    public static synchronized Support checkActuallyAdditions() {
+        if (actuallyAdditionsResult == null) {
+            actuallyAdditionsResult = checkOptionalMod(ACTUALLY_ADDITIONS_MOD_ID,
+                    OptimizationConfig.expectedActuallyAdditionsVersion, "Actually Additions");
+        }
+        return actuallyAdditionsResult;
+    }
+
+    public static boolean isUsable(Support support) {
+        if (support == Support.SUPPORTED) {
+            return true;
+        }
+        return support == Support.UNSUPPORTED && OptimizationConfig.allowUnverifiedModVersions;
+    }
+
+    private static Support checkOptionalMod(String modId, String expectedVersion, String displayName) {
+        String actual = version(modId);
+        if (actual == null) {
+            return Support.UNKNOWN;
+        }
+        if (matches(actual, expectedVersion)) {
+            return Support.SUPPORTED;
+        }
+        Diagnostics.LOG.warn("Not applying the {} integration mixins: found {} {}, and this build is "
+                + "written against {}. That handler keeps its own behavior.",
+                displayName, modId, actual, expectedVersion);
+        return Support.UNSUPPORTED;
     }
 
     private static String version(String modId) {

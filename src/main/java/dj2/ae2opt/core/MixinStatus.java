@@ -32,7 +32,10 @@ public final class MixinStatus {
         NEGATIVE_FRACTIONAL("Compacting drawer support", "MixinFractionalDrawerMarker"),
         NEGATIVE_PHASE2_MATCHERS("Phase-2 matcher-call sampling", "MixinDrawerItemRepositoryPhase2Probe"),
         NEGATIVE_PHASE2_EXIT("Phase-2 matcher-call sample exit", "MixinControllerItemRepositoryPhase2Exit"),
-        ITEM_HANDLER_EXTRACTION("ItemHandler extraction diagnostics", "MixinItemHandlerAdapterExtractionDiagnostics");
+        ITEM_HANDLER_EXTRACTION("ItemHandler extraction diagnostics", "MixinItemHandlerAdapterExtractionDiagnostics"),
+        EXTERNAL_HANDLER_NEGATIVE_EXTRACTION("External handler negative fast path", "MixinItemHandlerAdapterNegativeExtract"),
+        ENDER_UTILITIES_INTEGRATION("Ender Utilities presence index", "MixinEnderUtilitiesItemStackHandlerBasic"),
+        ACTUALLY_ADDITIONS_INTEGRATION("Actually Additions presence index", "MixinActuallyAdditionsTileStackHandler");
 
         public final String label;
         public final String mixinSimpleName;
@@ -143,6 +146,12 @@ public final class MixinStatus {
                 + (OptimizationConfig.optimizeDrawerCandidateNarrowing ? "ENABLED" : "DISABLED"));
         lines.add("  " + pad("candidate index verification")
                 + (OptimizationConfig.instrumentCandidateIndexVerification ? "ENABLED" : "DISABLED"));
+        lines.add("  " + pad("external handler negative path")
+                + (OptimizationConfig.optimizeExternalItemHandlerNegativeExtraction ? "ENABLED" : "DISABLED"));
+        lines.add("  " + pad("  Ender Utilities " + OptimizationConfig.expectedEnderUtilitiesVersion)
+                + CompatibilityCheck.checkEnderUtilities());
+        lines.add("  " + pad("  Actually Additions " + OptimizationConfig.expectedActuallyAdditionsVersion)
+                + CompatibilityCheck.checkActuallyAdditions());
         lines.add("This is what the config asked for. It does not mean a mixin applied.");
         return lines;
     }
@@ -203,6 +212,11 @@ public final class MixinStatus {
                 return " (waiting for a sampled extraction to return)";
             case ITEM_HANDLER_EXTRACTION:
                 return " (waiting for a generic IItemHandler-backed extraction)";
+            case EXTERNAL_HANDLER_NEGATIVE_EXTRACTION:
+                return " (waiting for a proven-absent extraction against an indexed handler)";
+            case ENDER_UTILITIES_INTEGRATION:
+            case ACTUALLY_ADDITIONS_INTEGRATION:
+                return " (waiting for that handler's contents to change at least once)";
             case ITEM_REPOSITORY_CACHE:
             case ITEM_LIST_VERSION:
                 return " (waiting for a storage bus to poll a drawer network)";

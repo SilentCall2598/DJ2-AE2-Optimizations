@@ -69,6 +69,9 @@ public final class OptimizationConfig {
     public static int maxItemHandlerClassesTracked = 256;
 
 
+    public static boolean optimizeExternalItemHandlerNegativeExtraction = false;
+
+
     public static int diagnosticsDumpIntervalSeconds = 0;
 
 
@@ -76,6 +79,12 @@ public final class OptimizationConfig {
 
 
     public static String expectedStorageDrawersVersion = "5.5.0";
+
+
+    public static String expectedEnderUtilitiesVersion = "0.7.15";
+
+
+    public static String expectedActuallyAdditionsVersion = "1.12.2-r152";
 
 
     public static boolean allowUnverifiedModVersions = false;
@@ -121,6 +130,8 @@ public final class OptimizationConfig {
                 instrumentItemHandlerExtraction);
         maxItemHandlerClassesTracked = clamp(integer(properties, "maxItemHandlerClassesTracked",
                 maxItemHandlerClassesTracked), 8, 16384);
+        optimizeExternalItemHandlerNegativeExtraction = bool(properties,
+                "optimizeExternalItemHandlerNegativeExtraction", optimizeExternalItemHandlerNegativeExtraction);
         optimizeDrawerNegativeExtraction = bool(properties, "optimizeDrawerNegativeExtraction", optimizeDrawerNegativeExtraction);
         optimizeDrawerCandidateNarrowing = bool(properties, "optimizeDrawerCandidateNarrowing", optimizeDrawerCandidateNarrowing);
         instrumentCandidateIndexVerification = bool(properties, "instrumentCandidateIndexVerification",
@@ -131,6 +142,8 @@ public final class OptimizationConfig {
         diagnosticsDumpIntervalSeconds = clamp(integer(properties, "diagnosticsDumpIntervalSeconds", diagnosticsDumpIntervalSeconds), 0, 86400);
         expectedAe2Version = string(properties, "expectedAe2Version", expectedAe2Version);
         expectedStorageDrawersVersion = string(properties, "expectedStorageDrawersVersion", expectedStorageDrawersVersion);
+        expectedEnderUtilitiesVersion = string(properties, "expectedEnderUtilitiesVersion", expectedEnderUtilitiesVersion);
+        expectedActuallyAdditionsVersion = string(properties, "expectedActuallyAdditionsVersion", expectedActuallyAdditionsVersion);
         allowUnverifiedModVersions = bool(properties, "allowUnverifiedModVersions", allowUnverifiedModVersions);
 
         write(file);
@@ -191,6 +204,13 @@ public final class OptimizationConfig {
             writer.write("# optimization is attempted. Diagnostic only; nothing it computes changes extraction.\n");
             writer.write("instrumentItemHandlerExtraction = " + instrumentItemHandlerExtraction + "\n");
             writer.write("maxItemHandlerClassesTracked = " + maxItemHandlerClassesTracked + "\n\n");
+            writer.write("# EXPERIMENTAL. Proven-absent short-circuit for ItemHandlerAdapter.extractItems, for\n");
+            writer.write("# the specific IItemHandler integrations audited and version-gated below (Ender\n");
+            writer.write("# Utilities JSU, Actually Additions TileEntityInventoryBase). Any other handler runs\n");
+            writer.write("# unchanged. Falls back to the exact stock scan whenever the index cannot prove\n");
+            writer.write("# absence, is not built, or the owning mod is absent or a different version.\n");
+            writer.write("optimizeExternalItemHandlerNegativeExtraction = "
+                    + optimizeExternalItemHandlerNegativeExtraction + "\n\n");
             writer.write("# When a Storage Drawers controller provably cannot serve a request, answer empty\n");
             writer.write("# instead of scanning every drawer slot in the network. Stock runs unchanged for\n");
             writer.write("# anything uncertain: a non-null predicate, a network containing an unaudited drawer\n");
@@ -210,6 +230,12 @@ public final class OptimizationConfig {
             writer.write("# strings actually found are logged at startup. Leave a value empty to skip its check.\n");
             writer.write("expectedAe2Version = " + expectedAe2Version + "\n");
             writer.write("expectedStorageDrawersVersion = " + expectedStorageDrawersVersion + "\n");
+            writer.write("# Same idea, for the two optional external IItemHandler integrations above. Neither\n");
+            writer.write("# mod is required for this build to work; when absent, their mixins simply do not\n");
+            writer.write("# apply. When present at a different version, the integration mixins are skipped\n");
+            writer.write("# rather than applied against unverified behavior.\n");
+            writer.write("expectedEnderUtilitiesVersion = " + expectedEnderUtilitiesVersion + "\n");
+            writer.write("expectedActuallyAdditionsVersion = " + expectedActuallyAdditionsVersion + "\n");
             writer.write("allowUnverifiedModVersions = " + allowUnverifiedModVersions + "\n");
         } catch (IOException e) {
             Diagnostics.LOG.warn("Could not write {}", file, e);
