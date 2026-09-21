@@ -620,9 +620,64 @@ public final class EquivTest {
                 + polls + " polls)");
     }
 
+    static List<AeStack> mirrorUpdateWithMalformedGuard(List<Object[]> records, ItemList currentlyCached) {
+        ItemList currentlyOnStorage = new ItemList();
+        for (Object[] rec : records) {
+            Stack prototype = (Stack) rec[0];
+            if (prototype == null || prototype.item == null) {
+                return null;
+            }
+            currentlyOnStorage.add(new AeStack(prototype.key(), (Integer) rec[1]));
+        }
+        List<AeStack> changes = new ArrayList<AeStack>();
+        for (AeStack is : currentlyCached) is.size = -is.size;
+        for (AeStack is : currentlyOnStorage) currentlyCached.add(is);
+        for (AeStack is : currentlyCached) if (is.size != 0) changes.add(is);
+        return changes;
+    }
+
+    static void malformedRecordFallbackRegression() {
+        String nullPrototype = "null prototype falls open without mutating the cache";
+        ItemList cachedA = new ItemList();
+        cachedA.add(new AeStack(new Key("iron_ingot", 0, null), 5));
+        Map<Key, Long> beforeA = cachedA.visible();
+        List<Object[]> recordsA = new ArrayList<Object[]>();
+        recordsA.add(new Object[]{new Stack("gold_ingot", 0, null), 3});
+        recordsA.add(new Object[]{null, 1});
+        List<AeStack> resultA = mirrorUpdateWithMalformedGuard(recordsA, cachedA);
+        if (resultA != null) {
+            System.out.println("FAIL " + nullPrototype + ": expected a null (fall-open) signal, got a result");
+            failures++;
+        } else if (!cachedA.visible().equals(beforeA)) {
+            System.out.println("FAIL " + nullPrototype + ": the cache was mutated before the malformed record was detected");
+            failures++;
+        } else {
+            System.out.println("pass  " + nullPrototype);
+        }
+
+        String unconvertible = "unconvertible prototype falls open without mutating the cache";
+        ItemList cachedB = new ItemList();
+        cachedB.add(new AeStack(new Key("iron_ingot", 0, null), 5));
+        Map<Key, Long> beforeB = cachedB.visible();
+        List<Object[]> recordsB = new ArrayList<Object[]>();
+        recordsB.add(new Object[]{new Stack("gold_ingot", 0, null), 3});
+        recordsB.add(new Object[]{new Stack(null, 0, null), 1});
+        List<AeStack> resultB = mirrorUpdateWithMalformedGuard(recordsB, cachedB);
+        if (resultB != null) {
+            System.out.println("FAIL " + unconvertible + ": expected a null (fall-open) signal, got a result");
+            failures++;
+        } else if (!cachedB.visible().equals(beforeB)) {
+            System.out.println("FAIL " + unconvertible + ": the cache was mutated before the malformed record was detected");
+            failures++;
+        } else {
+            System.out.println("pass  " + unconvertible);
+        }
+    }
+
     public static void main(String[] args) {
         overflowRegression();
         disabledFallbackRegression();
+        malformedRecordFallbackRegression();
         largeStableRegression(512, 10);
         largeStableRegression(1000, 10);
         vendingRegression(1, 64);

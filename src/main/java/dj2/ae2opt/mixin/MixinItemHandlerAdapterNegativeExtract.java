@@ -38,10 +38,16 @@ public abstract class MixinItemHandlerAdapterNegativeExtract {
             return;
         }
 
+        final IExternalHandlerPresenceHolder holder = (IExternalHandlerPresenceHolder) handler;
+        if (!holder.dj2ae2opt$isAuthorized()) {
+            Diagnostics.externalHandlerNegativeDeclinedByScope();
+            return;
+        }
+
         Diagnostics.externalHandlerNegativeConsidered();
 
         final ItemStack prototype = request.getDefinition();
-        if (((IExternalHandlerPresenceHolder) handler).dj2ae2opt$mightContain(prototype)) {
+        if (holder.dj2ae2opt$mightContain(prototype)) {
             return;
         }
 

@@ -12,18 +12,24 @@ public final class PrototypeEntry {
 
     private final Item item;
     private final int damage;
-    private final NBTTagCompound tag;
+    private final NBTTagCompound tagSnapshot;
 
     public PrototypeEntry(ItemStack prototype, IAEItemStack template) {
         this.item = prototype.getItem();
         this.damage = prototype.getItemDamage();
-        this.tag = prototype.getTagCompound();
+        final NBTTagCompound tag = prototype.getTagCompound();
+        this.tagSnapshot = tag == null ? null : tag.copy();
         this.template = template;
     }
 
     public boolean matches(ItemStack prototype) {
-        return prototype.getItem() == this.item
-                && prototype.getItemDamage() == this.damage
-                && prototype.getTagCompound() == this.tag;
+        if (prototype.getItem() != this.item || prototype.getItemDamage() != this.damage) {
+            return false;
+        }
+        final NBTTagCompound currentTag = prototype.getTagCompound();
+        if (this.tagSnapshot == null) {
+            return currentTag == null;
+        }
+        return currentTag != null && this.tagSnapshot.equals(currentTag);
     }
 }

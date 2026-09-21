@@ -418,7 +418,8 @@ def main():
         expected.append(argv[1])
         argv = argv[2:]
     if len(argv) < 2:
-        print(__doc__)
+        print("usage: verify_mixin_targets.py [--expect-error SUBSTRING]... CLASSES_DIR JAR_OR_DIR...")
+        print("       verify_mixin_targets.py --selftest")
         return 2
 
     classes_dir = argv[0].rstrip(os.sep).rstrip("/")

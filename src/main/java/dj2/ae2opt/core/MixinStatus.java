@@ -74,6 +74,10 @@ public final class MixinStatus {
                 case NEGATIVE_EPOCH_COMPACTING:
                 case NEGATIVE_EPOCH_ATTRIBUTES:
                 case NEGATIVE_FRACTIONAL:
+                case EXTERNAL_HANDLER_NEGATIVE_EXTRACTION:
+                case ENDER_UTILITIES_INTEGRATION:
+                case ENDER_UTILITIES_JSU_AUTHORIZATION:
+                case ACTUALLY_ADDITIONS_INTEGRATION:
                     return false;
                 default:
                     return true;
@@ -233,6 +237,15 @@ public final class MixinStatus {
     public static boolean hasUnavailableDiagnostics() {
         for (Feature feature : Feature.values()) {
             if (feature.isDiagnostic() && feature.requested && !feature.applied) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public static boolean hasUnavailableProductionFeatures() {
+        for (Feature feature : Feature.values()) {
+            if (!feature.isDiagnostic() && feature.requested && !feature.applied) {
                 return true;
             }
         }

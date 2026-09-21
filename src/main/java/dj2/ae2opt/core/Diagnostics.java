@@ -148,7 +148,7 @@ public final class Diagnostics {
     public static long templateMisses;
     public static long templateCachePrunes;
     public static long templateEntriesPruned;
-    public static long emptyPrototypesSkipped;
+    public static long malformedPrototypeFallbacks;
     public static long templateCachesDisabled;
     public static long templateCachesOversized;
     public static long templateCachesConfirmed;
@@ -159,7 +159,7 @@ public final class Diagnostics {
     public static long externalHandlerNegativeServed;
     public static long externalHandlerPresenceInvalidations;
     public static long externalHandlerPresenceBuildFailures;
-    public static long externalHandlerNegativeOwnerNotAuthorized;
+    public static long externalHandlerNegativeDeclinedByScope;
 
 
     public static long extractionCalls;
@@ -198,8 +198,7 @@ public final class Diagnostics {
 
     private static final Map<String, long[]> PER_CHANNEL = new TreeMap<String, long[]>();
 
-    private static int cellUpdateDepth;
-    private static long forceUpdateStartedAt;
+    public static long networkMonitorContextLeaksReset;
 
     private Diagnostics() {
     }
@@ -594,8 +593,8 @@ public final class Diagnostics {
         externalHandlerPresenceBuildFailures++;
     }
 
-    public static void externalHandlerNegativeOwnerNotAuthorized() {
-        externalHandlerNegativeOwnerNotAuthorized++;
+    public static void externalHandlerNegativeDeclinedByScope() {
+        externalHandlerNegativeDeclinedByScope++;
     }
 
     public static void templateHit() {
@@ -615,11 +614,13 @@ public final class Diagnostics {
         templateEntriesPruned += removed;
     }
 
-    public static void emptyPrototypeSkipped() {
-        if (emptyPrototypesSkipped++ == 0) {
-            LOG.warn("A Storage Drawers repository reported an empty item prototype. AE2's own code "
-                    + "would have thrown on this record; it is being skipped instead. Worth "
-                    + "investigating if the count climbs.");
+    public static void malformedPrototypeFallback() {
+        if (malformedPrototypeFallbacks++ == 0) {
+            LOG.warn("A Storage Drawers repository reported a record the optimized poll could not "
+                    + "convert (a null/empty prototype, or one AEItemStack.fromItemStack rejected). "
+                    + "AE2's own stock update() would have thrown on this record, so this poll is "
+                    + "falling through to that exact stock method instead of silently dropping the "
+                    + "record. Worth investigating if the count climbs.");
         }
     }
 
@@ -667,6 +668,12 @@ public final class Diagnostics {
             int leaked = Phase2MatcherContext.resetAtServerTickEnd();
             if (leaked > 0) {
                 phase2MatcherSamplesLeaked += leaked;
+            }
+        }
+        if (OptimizationConfig.instrumentNetworkMonitor) {
+            int leaked = NetworkMonitorContext.resetAtServerTickEnd();
+            if (leaked > 0) {
+                networkMonitorContextLeaksReset += leaked;
             }
         }
     }
@@ -773,7 +780,7 @@ public final class Diagnostics {
     }
 
     public static void cellUpdateEnter(boolean hasEvent) {
-        cellUpdateDepth++;
+        NetworkMonitorContext.cellUpdateEnter();
         if (hasEvent) {
             cellUpdatesWithEvent++;
         } else {
@@ -782,13 +789,11 @@ public final class Diagnostics {
     }
 
     public static void cellUpdateExit() {
-        if (cellUpdateDepth > 0) {
-            cellUpdateDepth--;
-        }
+        NetworkMonitorContext.cellUpdateExit();
     }
 
     public static void forceUpdateRequested(String channel) {
-        if (cellUpdateDepth > 0) {
+        if (NetworkMonitorContext.insideCellUpdate()) {
             forceUpdatesRequestedDuringCellUpdate++;
             channel(channel)[0]++;
         } else {
@@ -798,11 +803,11 @@ public final class Diagnostics {
     }
 
     public static void forceUpdateEnter() {
-        forceUpdateStartedAt = System.nanoTime();
+        NetworkMonitorContext.forceUpdateEnter();
     }
 
     public static void forceUpdateExit(String channel) {
-        long elapsed = System.nanoTime() - forceUpdateStartedAt;
+        long elapsed = NetworkMonitorContext.forceUpdateExit();
         forceUpdatesExecuted++;
         forceUpdateNanos += elapsed;
         long[] counters = channel(channel);
@@ -882,8 +887,8 @@ public final class Diagnostics {
         if (pollFailures > 0) {
             lines.add("poll failures     : " + pollFailures);
         }
-        if (emptyPrototypesSkipped > 0) {
-            lines.add("empty prototypes  : " + emptyPrototypesSkipped);
+        if (malformedPrototypeFallbacks > 0) {
+            lines.add("malformed records : " + malformedPrototypeFallbacks + " poll(s) fell open to stock update()");
         }
         if (OptimizationConfig.instrumentNetworkMonitor) {
             lines.add(String.format("cellUpdate        : %d from an event, %d direct",
@@ -893,6 +898,11 @@ public final class Diagnostics {
             lines.add(String.format("forceUpdate ran   : %d times, %d ms total, %d us mean",
                     forceUpdatesExecuted, forceUpdateNanos / 1_000_000L,
                     forceUpdatesExecuted == 0 ? 0 : forceUpdateNanos / forceUpdatesExecuted / 1000L));
+            if (networkMonitorContextLeaksReset > 0) {
+                lines.add("bracket recovery  : " + networkMonitorContextLeaksReset
+                        + " leaked cellUpdate/forceUpdate depth level(s) reset at tick end "
+                        + "(a target threw without returning normally)");
+            }
             for (Map.Entry<String, long[]> entry : PER_CHANNEL.entrySet()) {
                 long[] c = entry.getValue();
                 lines.add(String.format("  %s : asked %d+%d, ran %d, %d ms",
@@ -954,14 +964,15 @@ public final class Diagnostics {
     private static List<String> externalHandlerNegativeLines() {
         List<String> lines = new ArrayList<String>();
         lines.add("-- external IItemHandler negative fast path (Ender Utilities / Actually Additions) --");
-        lines.add(String.format("negative fast path: %d eligible, %d served (%s)",
+        lines.add(String.format("negative fast path: %d considered, %d served (%s)",
                 externalHandlerNegativeConsidered, externalHandlerNegativeServed,
                 percent(externalHandlerNegativeServed, externalHandlerNegativeConsidered)));
         lines.add(String.format("presence upkeep   : %d invalidations, %d build failures (falls open to stock)",
                 externalHandlerPresenceInvalidations, externalHandlerPresenceBuildFailures));
-        lines.add(String.format("owner scope       : %d Actually Additions handler(s) declined because their "
-                + "owning tile was not the audited Large Storage Crate",
-                externalHandlerNegativeOwnerNotAuthorized));
+        lines.add(String.format("declined by scope : %d request(s) against an audited handler type whose "
+                + "specific instance is not the exact class this revision authorizes "
+                + "(for example, a non-Large-Storage-Crate TileEntityInventoryBase)",
+                externalHandlerNegativeDeclinedByScope));
         lines.add(String.format("integration mods  : Ender Utilities %s, Actually Additions %s",
                 CompatibilityCheck.checkEnderUtilities(), CompatibilityCheck.checkActuallyAdditions()));
         return lines;

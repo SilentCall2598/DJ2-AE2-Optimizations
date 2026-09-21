@@ -26,10 +26,13 @@ public abstract class MixinEnderUtilitiesItemStackHandlerBasic implements IExter
     public abstract ItemStack getStackInSlot(int slot);
 
     @Unique
-    private final ExternalHandlerPresenceIndex dj2ae2opt$index = new ExternalHandlerPresenceIndex();
+    private ExternalHandlerPresenceIndex dj2ae2opt$index;
 
     @Inject(method = "onContentsChanged(I)V", at = @At("HEAD"), require = 1)
     private void dj2ae2opt$onContentsChanged(int slot, CallbackInfo ci) {
+        if (this.dj2ae2opt$index == null) {
+            return;
+        }
         this.dj2ae2opt$index.markDirty();
         MixinStatus.Feature.ENDER_UTILITIES_INTEGRATION.markRuntimeHit();
         Diagnostics.externalHandlerPresenceInvalidated();
@@ -37,12 +40,20 @@ public abstract class MixinEnderUtilitiesItemStackHandlerBasic implements IExter
 
     @Inject(method = "deserializeNBT(Lnet/minecraft/nbt/NBTTagCompound;)V", at = @At("HEAD"), require = 1)
     private void dj2ae2opt$onDeserializeNBT(NBTTagCompound nbt, CallbackInfo ci) {
+        if (this.dj2ae2opt$index == null) {
+            return;
+        }
         this.dj2ae2opt$index.markDirty();
     }
 
     @Override
     public boolean dj2ae2opt$mightContain(ItemStack request) {
-        return this.dj2ae2opt$index.mightContain(this, request);
+        ExternalHandlerPresenceIndex index = this.dj2ae2opt$index;
+        if (index == null) {
+            index = new ExternalHandlerPresenceIndex();
+            this.dj2ae2opt$index = index;
+        }
+        return index.mightContain(this, request);
     }
 
     @Override

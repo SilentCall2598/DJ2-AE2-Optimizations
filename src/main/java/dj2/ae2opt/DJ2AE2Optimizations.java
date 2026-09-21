@@ -49,6 +49,14 @@ public final class DJ2AE2Optimizations {
     public void serverStarted(FMLServerStartedEvent event) {
         MixinStatus.log(MixinStatus.LOG, "Mixin/runtime status", MixinStatus.statusLines());
 
+        if (MixinStatus.hasUnavailableProductionFeatures()) {
+            MixinStatus.LOG.warn("A requested OPTIMIZATION mixin did not apply. This is not a missing "
+                    + "diagnostic - the corresponding gameplay path is running unmodified stock "
+                    + "behavior instead of the optimization that was asked for. Its target class was "
+                    + "likely loaded before late mixins were prepared - search the log for "
+                    + "'loaded too early'.");
+        }
+
         if (MixinStatus.hasUnavailableDiagnostics()) {
             MixinStatus.LOG.warn("A diagnostic mixin was enabled but is not installed. Its target "
                     + "class was loaded before late mixins were prepared - search the log for "

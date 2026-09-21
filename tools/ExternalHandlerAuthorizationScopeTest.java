@@ -80,8 +80,13 @@ public final class ExternalHandlerAuthorizationScopeTest {
         }
 
         @Override
+        public boolean dj2ae2opt$isAuthorized() {
+            return this.owner instanceof TileEntityGiantChestLarge;
+        }
+
+        @Override
         public boolean dj2ae2opt$mightContain(ItemStack request) {
-            if (!(this.owner instanceof TileEntityGiantChestLarge)) {
+            if (!this.dj2ae2opt$isAuthorized()) {
                 return true;
             }
             return this.index.mightContain(this, request);
@@ -90,6 +95,7 @@ public final class ExternalHandlerAuthorizationScopeTest {
 
     static void authorizedOwnerCanProveAbsence() {
         final FakeOwnedHandler handler = new FakeOwnedHandler(new TileEntityGiantChestLarge());
+        check("the audited Large Storage Crate is authorized", handler.dj2ae2opt$isAuthorized(), "expected true");
         handler.addSlot(stack(Items.DIAMOND, 0));
         check("the audited Large Storage Crate reports an unrelated item as absent",
                 !handler.dj2ae2opt$mightContain(stack(Items.IRON_INGOT, 0)), "expected false");
@@ -99,6 +105,8 @@ public final class ExternalHandlerAuthorizationScopeTest {
 
     static void unauthorizedOwnerNeverProvesAbsence() {
         final FakeOwnedHandler handler = new FakeOwnedHandler(new TileEntityCompost());
+        check("an unrelated Actually Additions inventory is not authorized",
+                !handler.dj2ae2opt$isAuthorized(), "expected false");
         check("an unrelated Actually Additions inventory never proves absence, even when empty",
                 handler.dj2ae2opt$mightContain(stack(Items.IRON_INGOT, 0)), "expected true (declined)");
     }
@@ -137,6 +145,11 @@ public final class ExternalHandlerAuthorizationScopeTest {
         }
 
         @Override
+        public boolean dj2ae2opt$isAuthorized() {
+            return this.base instanceof IExternalHandlerPresenceSource;
+        }
+
+        @Override
         public boolean dj2ae2opt$mightContain(ItemStack request) {
             if (this.base instanceof IExternalHandlerPresenceSource) {
                 return ((IExternalHandlerPresenceSource) this.base).dj2ae2opt$mightContain(request);
@@ -149,6 +162,8 @@ public final class ExternalHandlerAuthorizationScopeTest {
         final FakeJSUBackingHandler backing = new FakeJSUBackingHandler();
         backing.addSlot(stack(Items.DIAMOND, 0));
         final FakeWrapper wrapper = new FakeWrapper(backing);
+        check("the JSU wrapper over an indexed backing handler is authorized",
+                wrapper.dj2ae2opt$isAuthorized(), "expected true");
         check("the JSU wrapper reports an unrelated item as absent through its indexed backing handler",
                 !wrapper.dj2ae2opt$mightContain(stack(Items.IRON_INGOT, 0)), "expected false");
         check("the JSU wrapper reports a stored item as present through its indexed backing handler",
@@ -158,6 +173,8 @@ public final class ExternalHandlerAuthorizationScopeTest {
     static void wrapperOverNonIndexedBackingHandlerNeverProvesAbsence() {
         final Object unindexedBacking = new Object();
         final FakeWrapper wrapper = new FakeWrapper(unindexedBacking);
+        check("a wrapper whose backing handler does not maintain a presence index is not authorized",
+                !wrapper.dj2ae2opt$isAuthorized(), "expected false");
         check("a wrapper whose backing handler does not maintain a presence index never proves absence",
                 wrapper.dj2ae2opt$mightContain(stack(Items.IRON_INGOT, 0)), "expected true (declined)");
     }

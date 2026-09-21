@@ -27,22 +27,44 @@ public abstract class MixinActuallyAdditionsTileStackHandler extends ItemStackHa
     private TileEntityInventoryBase this$0;
 
     @Unique
-    private final ExternalHandlerPresenceIndex dj2ae2opt$index = new ExternalHandlerPresenceIndex();
+    private ExternalHandlerPresenceIndex dj2ae2opt$index;
+
+    @Unique
+    private boolean dj2ae2opt$isAuthorizedOwner() {
+        return this.this$0 instanceof TileEntityGiantChestLarge;
+    }
 
     @Inject(method = "onContentsChanged(I)V", at = @At("HEAD"), require = 1)
     private void dj2ae2opt$onContentsChanged(int slot, CallbackInfo ci) {
-        this.dj2ae2opt$index.markDirty();
+        if (!this.dj2ae2opt$isAuthorizedOwner()) {
+            return;
+        }
+        ExternalHandlerPresenceIndex index = this.dj2ae2opt$index;
+        if (index == null) {
+            index = new ExternalHandlerPresenceIndex();
+            this.dj2ae2opt$index = index;
+        }
+        index.markDirty();
         MixinStatus.Feature.ACTUALLY_ADDITIONS_INTEGRATION.markRuntimeHit();
         Diagnostics.externalHandlerPresenceInvalidated();
     }
 
     @Override
+    public boolean dj2ae2opt$isAuthorized() {
+        return this.dj2ae2opt$isAuthorizedOwner();
+    }
+
+    @Override
     public boolean dj2ae2opt$mightContain(ItemStack request) {
-        if (!(this.this$0 instanceof TileEntityGiantChestLarge)) {
-            Diagnostics.externalHandlerNegativeOwnerNotAuthorized();
+        if (!this.dj2ae2opt$isAuthorizedOwner()) {
             return true;
         }
-        return this.dj2ae2opt$index.mightContain(this, request);
+        ExternalHandlerPresenceIndex index = this.dj2ae2opt$index;
+        if (index == null) {
+            index = new ExternalHandlerPresenceIndex();
+            this.dj2ae2opt$index = index;
+        }
+        return index.mightContain(this, request);
     }
 
     @Override

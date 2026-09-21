@@ -18,6 +18,11 @@ public abstract class MixinEnderUtilitiesItemHandlerWrapperJSU implements IExter
     private ItemStackHandlerTileEntity itemHandlerBase;
 
     @Override
+    public boolean dj2ae2opt$isAuthorized() {
+        return this.itemHandlerBase instanceof IExternalHandlerPresenceSource;
+    }
+
+    @Override
     public boolean dj2ae2opt$mightContain(ItemStack request) {
         MixinStatus.Feature.ENDER_UTILITIES_JSU_AUTHORIZATION.markRuntimeHit();
         final ItemStackHandlerTileEntity base = this.itemHandlerBase;

@@ -49,7 +49,8 @@ dependencies {
 }
 
 tasks.register('verifyLocalDependencies') {
-    description = 'Checks that libs/ holds exactly the pack jars the mixins compile against.'
+    description = 'Checks that libs/ holds the four pack jars the mixins compile against. ' +
+            'Does not check for or reject extra, unrelated jars left in libs/.'
     doLast {
         List<String> missing = []
         [ae2_jar: project.ae2_jar, storagedrawers_jar: project.storagedrawers_jar,
@@ -81,6 +82,53 @@ tasks.register('verifyLocalDependencies') {
 }
 
 compileJava.dependsOn verifyLocalDependencies
+
+tasks.register('compileToolsJava', JavaCompile) {
+    description = 'Compiles the standalone tools/*.java regression harnesses (excludes tools/fixtures).'
+    source = fileTree('tools') { include '*.java' }
+    classpath = sourceSets.main.compileClasspath + sourceSets.main.output
+    destinationDirectory = layout.buildDirectory.dir('classes/java/tools')
+    sourceCompatibility = '8'
+    targetCompatibility = '8'
+    dependsOn compileJava
+}
+
+tasks.register('compileToolsFixturesJava', JavaCompile) {
+    description = 'Compile-time regression check for the deliberately-broken verify_mixin_targets.py ' +
+            'fixtures. Running the Python verifier against them to confirm it still rejects them for ' +
+            'the intended reasons is documented in tools/README.md and is not wired into this build; ' +
+            'see that file for why.'
+    source = fileTree('tools/fixtures') { include '*.java' }
+    classpath = sourceSets.main.compileClasspath
+    destinationDirectory = layout.buildDirectory.dir('classes/java/toolsFixtures')
+    sourceCompatibility = '8'
+    targetCompatibility = '8'
+}
+
+def toolMainClasses = ['CandidateSlotTest', 'ExtractionPairingTest', 'FanOutContextTest', 'NegativeIndexTest',
+                        'Phase2MatcherTest', 'EquivTest', 'InventoryDiffTest', 'CandidateIndexTest',
+                        'ItemHandlerExtractionStatsTest', 'ExternalHandlerPresenceIndexTest',
+                        'ExternalHandlerAuthorizationScopeTest', 'PrototypeEntryTest']
+
+def toolRunTasks = toolMainClasses.collect { className ->
+    tasks.register("runTool${className}", JavaExec) {
+        group = 'verification'
+        description = "Runs tools/${className}.java"
+        dependsOn compileToolsJava, 'processPatchedMcResources'
+        classpath = sourceSets.main.compileClasspath + sourceSets.main.output +
+                files(layout.buildDirectory.dir('classes/java/tools')) +
+                files(layout.buildDirectory.dir('resources/patchedMc'))
+        mainClass = className
+    }
+}
+
+tasks.register('runToolTests') {
+    group = 'verification'
+    description = 'Runs all standalone tools/*.java regression harnesses.'
+    dependsOn toolRunTasks
+}
+
+check.dependsOn 'runToolTests', 'compileToolsFixturesJava'
 
 processResources {
     inputs.property 'version', project.mod_version

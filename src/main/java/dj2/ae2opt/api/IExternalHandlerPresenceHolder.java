@@ -6,5 +6,7 @@ import net.minecraft.item.ItemStack;
 public interface IExternalHandlerPresenceHolder {
 
 
+    boolean dj2ae2opt$isAuthorized();
+
     boolean dj2ae2opt$mightContain(ItemStack request);
 }

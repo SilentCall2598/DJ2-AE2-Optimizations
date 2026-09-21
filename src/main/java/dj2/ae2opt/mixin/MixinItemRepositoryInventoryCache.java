@@ -163,8 +163,8 @@ public abstract class MixinItemRepositoryInventoryCache {
             index++;
 
             if (prototype == null || prototype.isEmpty()) {
-                Diagnostics.emptyPrototypeSkipped();
-                continue;
+                Diagnostics.malformedPrototypeFallback();
+                return;
             }
 
             final IAEItemStack stack;
@@ -172,14 +172,16 @@ public abstract class MixinItemRepositoryInventoryCache {
 
                 final IAEItemStack converted = AEItemStack.fromItemStack(prototype);
                 if (converted == null) {
-                    continue;
+                    Diagnostics.malformedPrototypeFallback();
+                    return;
                 }
                 Diagnostics.fallbackConversion();
                 stack = converted.setStackSize(size);
             } else {
                 final IAEItemStack template = this.dj2ae2opt$template(prototype);
                 if (template == null) {
-                    continue;
+                    Diagnostics.malformedPrototypeFallback();
+                    return;
                 }
 
                 stack = template.copy().setStackSize(size);
