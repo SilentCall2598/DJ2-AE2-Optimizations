@@ -1,12 +1,16 @@
 package dj2.ae2opt.mixin;
 
+import de.ellpeck.actuallyadditions.mod.tile.TileEntityGiantChestLarge;
+import de.ellpeck.actuallyadditions.mod.tile.TileEntityInventoryBase;
 import dj2.ae2opt.api.IExternalHandlerPresenceHolder;
 import dj2.ae2opt.core.Diagnostics;
 import dj2.ae2opt.core.ExternalHandlerPresenceIndex;
 import dj2.ae2opt.core.MixinStatus;
 import net.minecraft.item.ItemStack;
 import net.minecraftforge.items.ItemStackHandler;
+import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -17,6 +21,10 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
         remap = false)
 public abstract class MixinActuallyAdditionsTileStackHandler extends ItemStackHandler
         implements IExternalHandlerPresenceHolder, ExternalHandlerPresenceIndex.SlotSource {
+
+    @Shadow
+    @Final
+    private TileEntityInventoryBase this$0;
 
     @Unique
     private final ExternalHandlerPresenceIndex dj2ae2opt$index = new ExternalHandlerPresenceIndex();
@@ -30,6 +38,10 @@ public abstract class MixinActuallyAdditionsTileStackHandler extends ItemStackHa
 
     @Override
     public boolean dj2ae2opt$mightContain(ItemStack request) {
+        if (!(this.this$0 instanceof TileEntityGiantChestLarge)) {
+            Diagnostics.externalHandlerNegativeOwnerNotAuthorized();
+            return true;
+        }
         return this.dj2ae2opt$index.mightContain(this, request);
     }
 

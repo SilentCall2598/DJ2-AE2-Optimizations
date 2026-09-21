@@ -159,6 +159,7 @@ public final class Diagnostics {
     public static long externalHandlerNegativeServed;
     public static long externalHandlerPresenceInvalidations;
     public static long externalHandlerPresenceBuildFailures;
+    public static long externalHandlerNegativeOwnerNotAuthorized;
 
 
     public static long extractionCalls;
@@ -593,6 +594,10 @@ public final class Diagnostics {
         externalHandlerPresenceBuildFailures++;
     }
 
+    public static void externalHandlerNegativeOwnerNotAuthorized() {
+        externalHandlerNegativeOwnerNotAuthorized++;
+    }
+
     public static void templateHit() {
         templateHits++;
         if (!loggedTemplateHit) {
@@ -954,6 +959,9 @@ public final class Diagnostics {
                 percent(externalHandlerNegativeServed, externalHandlerNegativeConsidered)));
         lines.add(String.format("presence upkeep   : %d invalidations, %d build failures (falls open to stock)",
                 externalHandlerPresenceInvalidations, externalHandlerPresenceBuildFailures));
+        lines.add(String.format("owner scope       : %d Actually Additions handler(s) declined because their "
+                + "owning tile was not the audited Large Storage Crate",
+                externalHandlerNegativeOwnerNotAuthorized));
         lines.add(String.format("integration mods  : Ender Utilities %s, Actually Additions %s",
                 CompatibilityCheck.checkEnderUtilities(), CompatibilityCheck.checkActuallyAdditions()));
         return lines;

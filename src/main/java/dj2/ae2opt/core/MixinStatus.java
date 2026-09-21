@@ -35,7 +35,9 @@ public final class MixinStatus {
         ITEM_HANDLER_EXTRACTION("ItemHandler extraction diagnostics", "MixinItemHandlerAdapterExtractionDiagnostics"),
         EXTERNAL_HANDLER_NEGATIVE_EXTRACTION("External handler negative fast path", "MixinItemHandlerAdapterNegativeExtract"),
         ENDER_UTILITIES_INTEGRATION("Ender Utilities presence index", "MixinEnderUtilitiesItemStackHandlerBasic"),
-        ACTUALLY_ADDITIONS_INTEGRATION("Actually Additions presence index", "MixinActuallyAdditionsTileStackHandler");
+        ENDER_UTILITIES_JSU_AUTHORIZATION("Ender Utilities JSU fast path", "MixinEnderUtilitiesItemHandlerWrapperJSU"),
+        ACTUALLY_ADDITIONS_INTEGRATION("Actually Additions Large Storage Crate presence index",
+                "MixinActuallyAdditionsTileStackHandler");
 
         public final String label;
         public final String mixinSimpleName;
@@ -217,6 +219,8 @@ public final class MixinStatus {
             case ENDER_UTILITIES_INTEGRATION:
             case ACTUALLY_ADDITIONS_INTEGRATION:
                 return " (waiting for that handler's contents to change at least once)";
+            case ENDER_UTILITIES_JSU_AUTHORIZATION:
+                return " (waiting for an extraction attempt against a JSU's item handler)";
             case ITEM_REPOSITORY_CACHE:
             case ITEM_LIST_VERSION:
                 return " (waiting for a storage bus to poll a drawer network)";

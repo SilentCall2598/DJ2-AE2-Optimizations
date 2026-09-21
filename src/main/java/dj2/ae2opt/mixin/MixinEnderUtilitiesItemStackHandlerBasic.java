@@ -1,6 +1,6 @@
 package dj2.ae2opt.mixin;
 
-import dj2.ae2opt.api.IExternalHandlerPresenceHolder;
+import dj2.ae2opt.api.IExternalHandlerPresenceSource;
 import dj2.ae2opt.core.Diagnostics;
 import dj2.ae2opt.core.ExternalHandlerPresenceIndex;
 import dj2.ae2opt.core.MixinStatus;
@@ -16,7 +16,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(targets = "fi.dy.masa.enderutilities.inventory.ItemStackHandlerBasic",
         remap = false)
-public abstract class MixinEnderUtilitiesItemStackHandlerBasic implements IExternalHandlerPresenceHolder,
+public abstract class MixinEnderUtilitiesItemStackHandlerBasic implements IExternalHandlerPresenceSource,
         ExternalHandlerPresenceIndex.SlotSource {
 
     @Shadow

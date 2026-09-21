@@ -57,6 +57,7 @@ public final class OptimizationMixinLoader implements ILateMixinLoader {
         MixinStatus.markRequested(MixinStatus.Feature.ITEM_HANDLER_EXTRACTION, itemHandlerExtraction);
         MixinStatus.markRequested(MixinStatus.Feature.EXTERNAL_HANDLER_NEGATIVE_EXTRACTION, externalHandler);
         MixinStatus.markRequested(MixinStatus.Feature.ENDER_UTILITIES_INTEGRATION, enderUtilities);
+        MixinStatus.markRequested(MixinStatus.Feature.ENDER_UTILITIES_JSU_AUTHORIZATION, enderUtilities);
         MixinStatus.markRequested(MixinStatus.Feature.ACTUALLY_ADDITIONS_INTEGRATION, actuallyAdditions);
 
         List<String> configs = new ArrayList<String>(10);
