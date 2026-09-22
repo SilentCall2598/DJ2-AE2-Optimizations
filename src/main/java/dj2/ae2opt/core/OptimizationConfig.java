@@ -69,6 +69,9 @@ public final class OptimizationConfig {
     public static boolean optimizeExternalItemHandlerNegativeExtraction = false;
 
 
+    public static boolean optimizeThaumicEnergisticsIncrementalUpdate = false;
+
+
     public static int diagnosticsDumpIntervalSeconds = 0;
 
 
@@ -82,6 +85,9 @@ public final class OptimizationConfig {
 
 
     public static String expectedActuallyAdditionsVersion = "1.12.2-r152";
+
+
+    public static String expectedThaumicEnergisticsVersion = "2.2.6";
 
 
     public static boolean allowUnverifiedModVersions = false;
@@ -128,6 +134,8 @@ public final class OptimizationConfig {
                 maxItemHandlerClassesTracked), 8, 16384);
         optimizeExternalItemHandlerNegativeExtraction = bool(properties,
                 "optimizeExternalItemHandlerNegativeExtraction", optimizeExternalItemHandlerNegativeExtraction);
+        optimizeThaumicEnergisticsIncrementalUpdate = bool(properties,
+                "optimizeThaumicEnergisticsIncrementalUpdate", optimizeThaumicEnergisticsIncrementalUpdate);
         optimizeDrawerNegativeExtraction = bool(properties, "optimizeDrawerNegativeExtraction", optimizeDrawerNegativeExtraction);
         optimizeDrawerCandidateNarrowing = bool(properties, "optimizeDrawerCandidateNarrowing", optimizeDrawerCandidateNarrowing);
         instrumentCandidateIndexVerification = bool(properties, "instrumentCandidateIndexVerification",
@@ -140,6 +148,7 @@ public final class OptimizationConfig {
         expectedStorageDrawersVersion = string(properties, "expectedStorageDrawersVersion", expectedStorageDrawersVersion);
         expectedEnderUtilitiesVersion = string(properties, "expectedEnderUtilitiesVersion", expectedEnderUtilitiesVersion);
         expectedActuallyAdditionsVersion = string(properties, "expectedActuallyAdditionsVersion", expectedActuallyAdditionsVersion);
+        expectedThaumicEnergisticsVersion = string(properties, "expectedThaumicEnergisticsVersion", expectedThaumicEnergisticsVersion);
         allowUnverifiedModVersions = bool(properties, "allowUnverifiedModVersions", allowUnverifiedModVersions);
 
         write(file);
@@ -201,6 +210,14 @@ public final class OptimizationConfig {
             writer.write("# absence, is not built, or the owning mod is absent or a different version.\n");
             writer.write("optimizeExternalItemHandlerNegativeExtraction = "
                     + optimizeExternalItemHandlerNegativeExtraction + "\n\n");
+            writer.write("# EXPERIMENTAL. On an attached-side neighbor notification against a Thaumic\n");
+            writer.write("# Energistics essentia storage bus, if the connected container is unchanged, post a\n");
+            writer.write("# precise signed essentia delta through AE2's postAlterationOfStoredItems instead of\n");
+            writer.write("# the broad MENetworkCellArrayUpdate the stock method posts on every call. A real\n");
+            writer.write("# topology change, or any uncertain or unsupported state, falls back to the exact\n");
+            writer.write("# stock broad update.\n");
+            writer.write("optimizeThaumicEnergisticsIncrementalUpdate = "
+                    + optimizeThaumicEnergisticsIncrementalUpdate + "\n\n");
             writer.write("# When a Storage Drawers controller provably cannot serve a request, answer empty\n");
             writer.write("# instead of scanning every drawer slot in the network. Stock runs unchanged for\n");
             writer.write("# anything uncertain: a non-null predicate, a network containing an unaudited drawer\n");
@@ -226,6 +243,10 @@ public final class OptimizationConfig {
             writer.write("# rather than applied against unverified behavior.\n");
             writer.write("expectedEnderUtilitiesVersion = " + expectedEnderUtilitiesVersion + "\n");
             writer.write("expectedActuallyAdditionsVersion = " + expectedActuallyAdditionsVersion + "\n");
+            writer.write("# Same idea, for the Thaumic Energistics essentia storage bus optimization above.\n");
+            writer.write("# This is the version the mod's own @Mod annotation reports at runtime, which is\n");
+            writer.write("# what Forge actually resolves; it can differ from the version in mcmod.info.\n");
+            writer.write("expectedThaumicEnergisticsVersion = " + expectedThaumicEnergisticsVersion + "\n");
             writer.write("allowUnverifiedModVersions = " + allowUnverifiedModVersions + "\n");
         } catch (IOException e) {
             Diagnostics.LOG.warn("Could not write {}", file, e);

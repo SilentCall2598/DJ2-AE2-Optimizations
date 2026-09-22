@@ -8,6 +8,7 @@ libs/*.jar
 !libs/StorageDrawers-1.12.2-5.5.0.jar
 !libs/enderutilities-1.12.2-0.7.15.jar
 !libs/ActuallyAdditions-1.12.2-r152.jar
+!libs/thaumicenergistics-extended_life-2.2.7.jar
 .idea/
 *.iml
 out/

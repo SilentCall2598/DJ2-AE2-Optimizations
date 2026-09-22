@@ -18,6 +18,7 @@ public final class OptimizationMixinLoader implements ILateMixinLoader {
     public static final String EXTERNAL_ITEM_HANDLER_CONFIG = "mixins.dj2ae2opt.externalitemhandler.json";
     public static final String ENDER_UTILITIES_CONFIG = "mixins.dj2ae2opt.enderutilities.json";
     public static final String ACTUALLY_ADDITIONS_CONFIG = "mixins.dj2ae2opt.actuallyadditions.json";
+    public static final String THAUMIC_ENERGISTICS_CONFIG = "mixins.dj2ae2opt.thaumicenergistics.json";
 
     @Override
     public List<String> getMixinConfigs() {
@@ -35,6 +36,8 @@ public final class OptimizationMixinLoader implements ILateMixinLoader {
                 && CompatibilityCheck.isUsable(CompatibilityCheck.checkEnderUtilities());
         final boolean actuallyAdditions = externalHandler
                 && CompatibilityCheck.isUsable(CompatibilityCheck.checkActuallyAdditions());
+        final boolean thaumicEnergistics = OptimizationConfig.optimizeThaumicEnergisticsIncrementalUpdate
+                && CompatibilityCheck.isUsable(CompatibilityCheck.checkThaumicEnergistics());
 
         MixinStatus.markRequested(MixinStatus.Feature.ITEM_REPOSITORY_CACHE, cache);
         MixinStatus.markRequested(MixinStatus.Feature.EXTRACTION_DIAGNOSTICS, extraction);
@@ -57,8 +60,9 @@ public final class OptimizationMixinLoader implements ILateMixinLoader {
         MixinStatus.markRequested(MixinStatus.Feature.ENDER_UTILITIES_INTEGRATION, enderUtilities);
         MixinStatus.markRequested(MixinStatus.Feature.ENDER_UTILITIES_JSU_AUTHORIZATION, enderUtilities);
         MixinStatus.markRequested(MixinStatus.Feature.ACTUALLY_ADDITIONS_INTEGRATION, actuallyAdditions);
+        MixinStatus.markRequested(MixinStatus.Feature.THAUMIC_ENERGISTICS_INTEGRATION, thaumicEnergistics);
 
-        List<String> configs = new ArrayList<String>(10);
+        List<String> configs = new ArrayList<String>(11);
         configs.add(OPTIMIZATION_CONFIG);
         if (extraction) {
             configs.add(EXTRACTION_CONFIG);
@@ -86,6 +90,9 @@ public final class OptimizationMixinLoader implements ILateMixinLoader {
         }
         if (actuallyAdditions) {
             configs.add(ACTUALLY_ADDITIONS_CONFIG);
+        }
+        if (thaumicEnergistics) {
+            configs.add(THAUMIC_ENERGISTICS_CONFIG);
         }
         return configs;
     }

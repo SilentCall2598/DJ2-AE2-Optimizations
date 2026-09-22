@@ -136,6 +136,9 @@ public final class Diagnostics {
     private static boolean loggedPoweredExtractionContext;
     private static boolean loggedItemHandlerExtraction;
     private static boolean loggedExternalHandlerNegative;
+    private static boolean loggedCellUpdate;
+    private static boolean loggedForceUpdate;
+    private static boolean loggedTeAttachedSide;
 
     private static long serverTicks;
 
@@ -158,6 +161,20 @@ public final class Diagnostics {
     public static long externalHandlerPresenceInvalidations;
     public static long externalHandlerPresenceBuildFailures;
     public static long externalHandlerNegativeDeclinedByScope;
+
+    public static long teAttachedSideNotifications;
+    public static long teContainerIdentityChanges;
+    public static long teSameContainerNotifications;
+    public static long teSameContainerWithDelta;
+    public static long teSameContainerNoDelta;
+    public static long teDeltaBatchesPosted;
+    public static long teDeltaStacksPosted;
+    public static long teBroadEventsSuppressed;
+    public static long teBroadEventsAllowed;
+    public static long teFailOpenEvents;
+    public static long teFailOpenNoBaseline;
+    public static long teFailOpenMissingAccess;
+    public static long teFailOpenExceptions;
 
 
     public static long extractionCalls;
@@ -587,6 +604,63 @@ public final class Diagnostics {
         externalHandlerNegativeDeclinedByScope++;
     }
 
+    public static void teAttachedSideNotification() {
+        teAttachedSideNotifications++;
+        if (!loggedTeAttachedSide) {
+            loggedTeAttachedSide = true;
+            MixinStatus.Feature.THAUMIC_ENERGISTICS_INTEGRATION.markRuntimeHit();
+            RUNTIME.info("ACTIVE: first Thaumic Energistics essentia storage bus attached-side "
+                    + "neighbor notification observed.");
+        }
+    }
+
+    public static void teContainerIdentityChanged() {
+        teContainerIdentityChanges++;
+        teBroadEventsAllowed++;
+    }
+
+    public static void teSameContainerNotification() {
+        teSameContainerNotifications++;
+    }
+
+    public static void teSameContainerDelta(int deltaCount) {
+        teSameContainerWithDelta++;
+        teDeltaBatchesPosted++;
+        teDeltaStacksPosted += deltaCount;
+        teBroadEventsSuppressed++;
+    }
+
+    public static void teSameContainerNoDelta() {
+        teSameContainerNoDelta++;
+        teBroadEventsSuppressed++;
+    }
+
+    public static void teFailOpenNoBaseline() {
+        teFailOpenEvents++;
+        teFailOpenNoBaseline++;
+        teBroadEventsAllowed++;
+    }
+
+    public static void teFailOpenMissingAccess(String reason) {
+        teFailOpenEvents++;
+        teFailOpenMissingAccess++;
+        teBroadEventsAllowed++;
+        if (teFailOpenMissingAccess == 1) {
+            LOG.warn("Thaumic Energistics incremental update fell open to the stock broad update: {}. "
+                    + "Gameplay is unaffected; that call ran the exact stock path.", reason);
+        }
+    }
+
+    public static void teFailOpenException(Throwable t) {
+        teFailOpenEvents++;
+        teFailOpenExceptions++;
+        teBroadEventsAllowed++;
+        if (teFailOpenExceptions == 1) {
+            LOG.warn("Thaumic Energistics incremental update fell open to the stock broad update due to "
+                    + "an exception. Gameplay is unaffected; that call ran the exact stock path.", t);
+        }
+    }
+
     public static void templateHit() {
         templateHits++;
         if (!loggedTemplateHit) {
@@ -771,6 +845,11 @@ public final class Diagnostics {
 
     public static void cellUpdateEnter(boolean hasEvent) {
         NetworkMonitorContext.cellUpdateEnter();
+        if (!loggedCellUpdate) {
+            loggedCellUpdate = true;
+            MixinStatus.Feature.GRID_STORAGE_CACHE.markRuntimeHit();
+            RUNTIME.info("ACTIVE: first GridStorageCache.cellUpdate observed.");
+        }
         if (hasEvent) {
             cellUpdatesWithEvent++;
         } else {
@@ -794,6 +873,11 @@ public final class Diagnostics {
 
     public static void forceUpdateEnter() {
         NetworkMonitorContext.forceUpdateEnter();
+        if (!loggedForceUpdate) {
+            loggedForceUpdate = true;
+            MixinStatus.Feature.NETWORK_MONITOR.markRuntimeHit();
+            RUNTIME.info("ACTIVE: first NetworkMonitor.forceUpdate observed.");
+        }
     }
 
     public static void forceUpdateExit(String channel) {
@@ -946,7 +1030,29 @@ public final class Diagnostics {
         if (OptimizationConfig.optimizeExternalItemHandlerNegativeExtraction) {
             lines.addAll(externalHandlerNegativeLines());
         }
+        if (OptimizationConfig.optimizeThaumicEnergisticsIncrementalUpdate) {
+            lines.addAll(thaumicEnergisticsLines());
+        }
         lines.add("counter store     : " + STORE_ID);
+        return lines;
+    }
+
+    private static List<String> thaumicEnergisticsLines() {
+        List<String> lines = new ArrayList<String>();
+        lines.add("-- Thaumic Energistics essentia storage bus incremental update --");
+        lines.add(String.format("attached-side     : %d notifications, %d same container (%s), %d identity changes",
+                teAttachedSideNotifications, teSameContainerNotifications,
+                percent(teSameContainerNotifications, teAttachedSideNotifications), teContainerIdentityChanges));
+        lines.add(String.format("same container    : %d with content delta, %d with no delta",
+                teSameContainerWithDelta, teSameContainerNoDelta));
+        lines.add(String.format("deltas posted     : %d batch(es), %d individual signed stack(s)",
+                teDeltaBatchesPosted, teDeltaStacksPosted));
+        lines.add(String.format("broad update      : %d suppressed, %d allowed (topology changes + fail-open)",
+                teBroadEventsSuppressed, teBroadEventsAllowed));
+        lines.add(String.format("fail-open         : %d total (%d no baseline yet, %d missing access, "
+                + "%d exception)",
+                teFailOpenEvents, teFailOpenNoBaseline, teFailOpenMissingAccess, teFailOpenExceptions));
+        lines.add("integration mod   : Thaumic Energistics " + CompatibilityCheck.checkThaumicEnergistics());
         return lines;
     }
 

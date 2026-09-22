@@ -12,6 +12,7 @@ public final class CompatibilityCheck {
     public static final String DRAWERS_MOD_ID = "storagedrawers";
     public static final String ENDER_UTILITIES_MOD_ID = "enderutilities";
     public static final String ACTUALLY_ADDITIONS_MOD_ID = "actuallyadditions";
+    public static final String THAUMIC_ENERGISTICS_MOD_ID = "thaumicenergistics";
 
     private CompatibilityCheck() {
     }
@@ -22,6 +23,7 @@ public final class CompatibilityCheck {
     private static boolean loggedEarlyRefusal;
     private static Support enderUtilitiesResult;
     private static Support actuallyAdditionsResult;
+    private static Support thaumicEnergisticsResult;
 
 
     public static synchronized Support checkEarly() {
@@ -94,6 +96,14 @@ public final class CompatibilityCheck {
                     OptimizationConfig.expectedActuallyAdditionsVersion, "Actually Additions");
         }
         return actuallyAdditionsResult;
+    }
+
+    public static synchronized Support checkThaumicEnergistics() {
+        if (thaumicEnergisticsResult == null) {
+            thaumicEnergisticsResult = checkOptionalMod(THAUMIC_ENERGISTICS_MOD_ID,
+                    OptimizationConfig.expectedThaumicEnergisticsVersion, "Thaumic Energistics");
+        }
+        return thaumicEnergisticsResult;
     }
 
     public static boolean isUsable(Support support) {

@@ -40,7 +40,9 @@ public final class MixinStatus {
         ENDER_UTILITIES_INTEGRATION("Ender Utilities presence index", "MixinEnderUtilitiesItemStackHandlerBasic"),
         ENDER_UTILITIES_JSU_AUTHORIZATION("Ender Utilities JSU fast path", "MixinEnderUtilitiesItemHandlerWrapperJSU"),
         ACTUALLY_ADDITIONS_INTEGRATION("Actually Additions Large Storage Crate presence index",
-                "MixinActuallyAdditionsTileStackHandler");
+                "MixinActuallyAdditionsTileStackHandler"),
+        THAUMIC_ENERGISTICS_INTEGRATION("Thaumic Energistics essentia bus incremental update",
+                "MixinPartEssentiaStorageBus");
 
         public final String label;
         public final String mixinSimpleName;
@@ -80,6 +82,7 @@ public final class MixinStatus {
                 case ENDER_UTILITIES_INTEGRATION:
                 case ENDER_UTILITIES_JSU_AUTHORIZATION:
                 case ACTUALLY_ADDITIONS_INTEGRATION:
+                case THAUMIC_ENERGISTICS_INTEGRATION:
                     return false;
                 default:
                     return true;
@@ -176,6 +179,10 @@ public final class MixinStatus {
                 + CompatibilityCheck.checkEnderUtilities());
         lines.add("  " + pad("  Actually Additions " + OptimizationConfig.expectedActuallyAdditionsVersion)
                 + CompatibilityCheck.checkActuallyAdditions());
+        lines.add("  " + pad("Thaumic Energistics incremental update")
+                + (OptimizationConfig.optimizeThaumicEnergisticsIncrementalUpdate ? "ENABLED" : "DISABLED"));
+        lines.add("  " + pad("  Thaumic Energistics " + OptimizationConfig.expectedThaumicEnergisticsVersion)
+                + CompatibilityCheck.checkThaumicEnergistics());
         lines.add("This is what the config asked for. It does not mean a mixin applied.");
         return lines;
     }
@@ -243,6 +250,8 @@ public final class MixinStatus {
                 return " (waiting for that handler's contents to change at least once)";
             case ENDER_UTILITIES_JSU_AUTHORIZATION:
                 return " (waiting for an extraction attempt against a JSU's item handler)";
+            case THAUMIC_ENERGISTICS_INTEGRATION:
+                return " (waiting for an attached-side neighbor notification on an essentia storage bus)";
             case ITEM_REPOSITORY_CACHE:
                 return " (waiting for a storage bus to poll a drawer network)";
             default:
