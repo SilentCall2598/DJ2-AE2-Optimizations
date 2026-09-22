@@ -50,23 +50,28 @@ public final class DJ2AE2Optimizations {
         MixinStatus.log(MixinStatus.LOG, "Mixin/runtime status", MixinStatus.statusLines());
 
         if (MixinStatus.hasUnavailableProductionFeatures()) {
-            MixinStatus.LOG.warn("A requested OPTIMIZATION mixin did not apply. This is not a missing "
-                    + "diagnostic - the corresponding gameplay path is running unmodified stock "
-                    + "behavior instead of the optimization that was asked for. Its target class was "
-                    + "likely loaded before late mixins were prepared - search the log for "
-                    + "'loaded too early'.");
+            MixinStatus.LOG.warn("A requested OPTIMIZATION was explicitly declined by its "
+                    + "compatibility/version gate. This is not a missing diagnostic - the "
+                    + "corresponding gameplay path is running unmodified stock behavior instead of "
+                    + "the optimization that was asked for. Check the mod versions logged at startup "
+                    + "against expectedAe2Version/expectedStorageDrawersVersion/"
+                    + "expectedEnderUtilitiesVersion/expectedActuallyAdditionsVersion, or set "
+                    + "allowUnverifiedModVersions if you have verified the installed build yourself.");
         }
 
         if (MixinStatus.hasUnavailableDiagnostics()) {
-            MixinStatus.LOG.warn("A diagnostic mixin was enabled but is not installed. Its target "
-                    + "class was loaded before late mixins were prepared - search the log for "
-                    + "'loaded too early'. Any measurement that depends on it is missing, not zero.");
-            if (MixinStatus.Feature.POWERED_EXTRACTION_CONTEXT.isRequested()
-                    && !MixinStatus.Feature.POWERED_EXTRACTION_CONTEXT.isApplied()) {
-                MixinStatus.LOG.warn("Specifically: extraction SIMULATE/MODULATE pairs cannot be "
-                        + "tied to one Platform.poweredExtraction call in this environment, so all "
-                        + "pairs reported are the weaker same-tick/same-source heuristic.");
-            }
+            MixinStatus.LOG.warn("A diagnostic mixin was enabled but was explicitly declined by its "
+                    + "compatibility/version gate. Any measurement that depends on it is missing, "
+                    + "not zero.");
+        }
+
+        if (MixinStatus.Feature.POWERED_EXTRACTION_CONTEXT.isRequested()
+                && !MixinStatus.Feature.POWERED_EXTRACTION_CONTEXT.isApplied()
+                && MixinStatus.Feature.POWERED_EXTRACTION_CONTEXT.statusTag() != MixinStatus.StatusTag.ERR) {
+            MixinStatus.LOG.warn("PoweredExtraction context diagnostics: on this pack "
+                    + "appeng.util.Platform is classloaded before late mixins are prepared, so this "
+                    + "bracket is expected to never apply here. Extraction pairs are then the "
+                    + "same-tick/same-source heuristic, not transaction-scoped. This is not a failure.");
         }
     }
 

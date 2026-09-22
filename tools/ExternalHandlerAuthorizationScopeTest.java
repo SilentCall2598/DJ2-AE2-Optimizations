@@ -81,7 +81,7 @@ public final class ExternalHandlerAuthorizationScopeTest {
 
         @Override
         public boolean dj2ae2opt$isAuthorized() {
-            return this.owner instanceof TileEntityGiantChestLarge;
+            return this.owner != null && this.owner.getClass() == TileEntityGiantChestLarge.class;
         }
 
         @Override
@@ -108,6 +108,17 @@ public final class ExternalHandlerAuthorizationScopeTest {
         check("an unrelated Actually Additions inventory is not authorized",
                 !handler.dj2ae2opt$isAuthorized(), "expected false");
         check("an unrelated Actually Additions inventory never proves absence, even when empty",
+                handler.dj2ae2opt$mightContain(stack(Items.IRON_INGOT, 0)), "expected true (declined)");
+    }
+
+    static final class FakeGiantChestLargeSubclass extends TileEntityGiantChestLarge {
+    }
+
+    static void subclassOfGiantChestLargeIsNotAuthorized() {
+        final FakeOwnedHandler handler = new FakeOwnedHandler(new FakeGiantChestLargeSubclass());
+        check("a subclass of TileEntityGiantChestLarge is not authorized (exact class only, not instanceof)",
+                !handler.dj2ae2opt$isAuthorized(), "expected false");
+        check("a subclass of TileEntityGiantChestLarge never proves absence, even when empty",
                 handler.dj2ae2opt$mightContain(stack(Items.IRON_INGOT, 0)), "expected true (declined)");
     }
 
@@ -186,6 +197,7 @@ public final class ExternalHandlerAuthorizationScopeTest {
         unrelatedInventoryBaseOwnerIsNotGiantChestLarge();
         authorizedOwnerCanProveAbsence();
         unauthorizedOwnerNeverProvesAbsence();
+        subclassOfGiantChestLargeIsNotAuthorized();
         jsuWrapperOverIndexedBackingHandlerProvesAbsence();
         wrapperOverNonIndexedBackingHandlerNeverProvesAbsence();
 

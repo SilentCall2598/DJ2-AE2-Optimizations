@@ -69,7 +69,6 @@ public final class CompatibilityCheck {
         }
 
         OptimizationConfig.optimizeDrawerInventoryPolling = false;
-        OptimizationConfig.skipUnchangedDrawerPolls = false;
         OptimizationConfig.optimizeDrawerNegativeExtraction = false;
         Diagnostics.LOG.warn("Drawer optimization disabled: this build is validated against {} {} and {} {}, "
                 + "and those are not what is installed. AE2 keeps its own behavior. If the installed "
@@ -112,9 +111,16 @@ public final class CompatibilityCheck {
         if (matches(actual, expectedVersion)) {
             return Support.SUPPORTED;
         }
-        Diagnostics.LOG.warn("Not applying the {} integration mixins: found {} {}, and this build is "
-                + "written against {}. That handler keeps its own behavior.",
-                displayName, modId, actual, expectedVersion);
+        if (OptimizationConfig.allowUnverifiedModVersions) {
+            Diagnostics.LOG.warn("Applying the {} integration mixins against an unverified version: found "
+                    + "{} {}, and this build is written against {}. Running because "
+                    + "allowUnverifiedModVersions is set.",
+                    displayName, modId, actual, expectedVersion);
+        } else {
+            Diagnostics.LOG.warn("Not applying the {} integration mixins: found {} {}, and this build is "
+                    + "written against {}. That handler keeps its own behavior.",
+                    displayName, modId, actual, expectedVersion);
+        }
         return Support.UNSUPPORTED;
     }
 

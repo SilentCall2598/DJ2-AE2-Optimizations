@@ -13,10 +13,13 @@ public final class MixinStatus {
     public static final Logger MIXIN_LOG = LogManager.getLogger("DJ2AE2Opt/Mixin");
     public static final Logger RUNTIME_LOG = LogManager.getLogger("DJ2AE2Opt/Runtime");
 
+    public enum StatusTag {
+        OFF, WAIT, OK, ERR
+    }
+
     public enum Feature {
 
         ITEM_REPOSITORY_CACHE("Drawer conversion cache", "MixinItemRepositoryInventoryCache"),
-        ITEM_LIST_VERSION("Unchanged-poll skipping (experimental)", "MixinItemList"),
         EXTRACTION_DIAGNOSTICS("Extraction transaction diagnostics", "MixinItemRepositoryAdapterExtraction"),
         POWERED_EXTRACTION_CONTEXT("PoweredExtraction context diagnostics", "MixinPlatformPoweredExtractionDiagnostics"),
         NETWORK_MONITOR("NetworkMonitor diagnostics", "MixinNetworkMonitor"),
@@ -66,7 +69,6 @@ public final class MixinStatus {
         public boolean isDiagnostic() {
             switch (this) {
                 case ITEM_REPOSITORY_CACHE:
-                case ITEM_LIST_VERSION:
                 case NEGATIVE_FAST_PATH:
                 case NEGATIVE_INDEX:
                 case NEGATIVE_ATTRS:
@@ -90,6 +92,22 @@ public final class MixinStatus {
 
         public boolean hasRuntimeHit() {
             return this.runtimeHit;
+        }
+
+        public StatusTag statusTag() {
+            if (!this.requested) {
+                return StatusTag.OFF;
+            }
+            if (!this.pluginConsulted) {
+                return StatusTag.WAIT;
+            }
+            if (!this.selected) {
+                return StatusTag.ERR;
+            }
+            if (!this.applied) {
+                return StatusTag.WAIT;
+            }
+            return StatusTag.OK;
         }
 
         public void markRuntimeHit() {
@@ -226,7 +244,6 @@ public final class MixinStatus {
             case ENDER_UTILITIES_JSU_AUTHORIZATION:
                 return " (waiting for an extraction attempt against a JSU's item handler)";
             case ITEM_REPOSITORY_CACHE:
-            case ITEM_LIST_VERSION:
                 return " (waiting for a storage bus to poll a drawer network)";
             default:
                 return "";
@@ -236,7 +253,7 @@ public final class MixinStatus {
 
     public static boolean hasUnavailableDiagnostics() {
         for (Feature feature : Feature.values()) {
-            if (feature.isDiagnostic() && feature.requested && !feature.applied) {
+            if (feature.isDiagnostic() && feature.statusTag() == StatusTag.ERR) {
                 return true;
             }
         }
@@ -245,7 +262,7 @@ public final class MixinStatus {
 
     public static boolean hasUnavailableProductionFeatures() {
         for (Feature feature : Feature.values()) {
-            if (!feature.isDiagnostic() && feature.requested && !feature.applied) {
+            if (!feature.isDiagnostic() && feature.statusTag() == StatusTag.ERR) {
                 return true;
             }
         }

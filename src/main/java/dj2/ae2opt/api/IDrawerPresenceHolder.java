@@ -13,7 +13,4 @@ public interface IDrawerPresenceHolder {
 
 
     int[] dj2ae2opt$candidateSlotsFor(ItemStack request);
-
-
-    void dj2ae2opt$markTopologyDirty();
 }

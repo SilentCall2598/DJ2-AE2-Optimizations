@@ -6,7 +6,6 @@ import appeng.api.storage.data.IAEItemStack;
 import appeng.api.storage.data.IItemList;
 import appeng.util.item.AEItemStack;
 import com.jaquadro.minecraft.storagedrawers.api.capabilities.IItemRepository;
-import dj2.ae2opt.api.IVersionedItemList;
 import dj2.ae2opt.core.Diagnostics;
 import dj2.ae2opt.core.InventoryDiff;
 import dj2.ae2opt.core.PrototypeEntry;
@@ -22,7 +21,6 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.IdentityHashMap;
 import java.util.List;
 
@@ -39,30 +37,6 @@ public abstract class MixinItemRepositoryInventoryCache {
 
     @Unique
     private IdentityHashMap<ItemStack, PrototypeEntry> dj2ae2opt$templates;
-
-    @Unique
-    private ItemStack[] dj2ae2opt$snapshotProtos;
-
-    @Unique
-    private long[] dj2ae2opt$snapshotCounts;
-
-    @Unique
-    private int dj2ae2opt$snapshotLength;
-
-    @Unique
-    private int dj2ae2opt$cachedListVersion;
-
-    @Unique
-    private boolean dj2ae2opt$haveListVersion;
-
-    @Unique
-    private IAEItemStack[] dj2ae2opt$cachedRefs;
-
-    @Unique
-    private long[] dj2ae2opt$cachedSizes;
-
-    @Unique
-    private int dj2ae2opt$cachedEntryCount;
 
     @Unique
     private boolean dj2ae2opt$templatesDisabled;
@@ -122,24 +96,12 @@ public abstract class MixinItemRepositoryInventoryCache {
             this.dj2ae2opt$disableTemplates();
         }
 
-        final boolean needSkipSnapshot = OptimizationConfig.skipUnchangedDrawerPolls && !this.dj2ae2opt$templatesDisabled;
-
-        if (needSkipSnapshot
-                && this.dj2ae2opt$repositoryUnchanged(count, records)
-                && this.dj2ae2opt$cachedListUnchanged()
-                && this.dj2ae2opt$cachedContentsUnchanged()) {
-            Diagnostics.pollSkipped();
-            cir.setReturnValue(Collections.<IAEItemStack>emptyList());
-            return;
-        }
-
         final IdentityHashMap<ItemStack, PrototypeEntry> templates = this.dj2ae2opt$templates;
         final boolean needPruneSnapshot = !this.dj2ae2opt$templatesDisabled
                 && templates != null
                 && templates.size() > dj2ae2opt$pruneThreshold(count);
 
-        final ItemStack[] protos = (needSkipSnapshot || needPruneSnapshot) ? new ItemStack[count] : null;
-        final long[] counts = needSkipSnapshot ? new long[count] : null;
+        final ItemStack[] protos = needPruneSnapshot ? new ItemStack[count] : null;
 
         final IItemList<IAEItemStack> currentlyOnStorage =
                 AEApi.instance().storage().getStorageChannel(IItemStorageChannel.class).createList();
@@ -152,13 +114,8 @@ public abstract class MixinItemRepositoryInventoryCache {
             final ItemStack prototype = rec.itemPrototype;
             final long size = rec.count;
 
-            if (index < count) {
-                if (protos != null) {
-                    protos[index] = prototype;
-                }
-                if (counts != null) {
-                    counts[index] = size;
-                }
+            if (index < count && protos != null) {
+                protos[index] = prototype;
             }
             index++;
 
@@ -219,16 +176,6 @@ public abstract class MixinItemRepositoryInventoryCache {
         this.currentlyCached = currentlyOnStorage;
 
         final boolean aligned = index == count;
-
-        if (needSkipSnapshot && aligned) {
-            this.dj2ae2opt$snapshotProtos = protos;
-            this.dj2ae2opt$snapshotCounts = counts;
-            this.dj2ae2opt$snapshotLength = count;
-            this.dj2ae2opt$rememberListVersion(currentlyOnStorage);
-            this.dj2ae2opt$rememberCacheContents(currentlyOnStorage, count);
-        } else {
-            this.dj2ae2opt$forgetSkipState();
-        }
 
         if (needPruneSnapshot && aligned && protos != null) {
             this.dj2ae2opt$pruneTemplates(protos, count);
@@ -304,18 +251,6 @@ public abstract class MixinItemRepositoryInventoryCache {
         this.dj2ae2opt$templatesDisabled = true;
         this.dj2ae2opt$stability = DJ2AE2OPT$GIVEN_UP;
         this.dj2ae2opt$templates = null;
-        this.dj2ae2opt$forgetSkipState();
-    }
-
-    @Unique
-    private void dj2ae2opt$forgetSkipState() {
-        this.dj2ae2opt$snapshotProtos = null;
-        this.dj2ae2opt$snapshotCounts = null;
-        this.dj2ae2opt$snapshotLength = 0;
-        this.dj2ae2opt$haveListVersion = false;
-        this.dj2ae2opt$cachedRefs = null;
-        this.dj2ae2opt$cachedSizes = null;
-        this.dj2ae2opt$cachedEntryCount = 0;
     }
 
     @Unique
@@ -346,83 +281,5 @@ public abstract class MixinItemRepositoryInventoryCache {
 
         Diagnostics.templateCachePruned(templates.size() - kept.size());
         this.dj2ae2opt$templates = kept;
-    }
-
-
-    @Unique
-    private boolean dj2ae2opt$repositoryUnchanged(int count, Collection<IItemRepository.ItemRecord> records) {
-        final ItemStack[] protos = this.dj2ae2opt$snapshotProtos;
-        if (protos == null || this.dj2ae2opt$snapshotLength != count || protos.length < count) {
-            return false;
-        }
-        final long[] counts = this.dj2ae2opt$snapshotCounts;
-        int index = 0;
-        for (IItemRepository.ItemRecord rec : records) {
-            if (index >= count || rec.itemPrototype != protos[index] || rec.count != counts[index]) {
-                return false;
-            }
-            index++;
-        }
-        return index == count;
-    }
-
-
-    @Unique
-    private void dj2ae2opt$rememberCacheContents(IItemList<IAEItemStack> list, int capacity) {
-        final IAEItemStack[] refs = new IAEItemStack[capacity];
-        final long[] sizes = new long[capacity];
-
-        int index = 0;
-        for (IAEItemStack is : list) {
-            if (index >= capacity) {
-                this.dj2ae2opt$cachedRefs = null;
-                this.dj2ae2opt$cachedSizes = null;
-                this.dj2ae2opt$cachedEntryCount = 0;
-                return;
-            }
-            refs[index] = is;
-            sizes[index] = is.getStackSize();
-            index++;
-        }
-
-        this.dj2ae2opt$cachedRefs = refs;
-        this.dj2ae2opt$cachedSizes = sizes;
-        this.dj2ae2opt$cachedEntryCount = index;
-    }
-
-    @Unique
-    private boolean dj2ae2opt$cachedContentsUnchanged() {
-        final IAEItemStack[] refs = this.dj2ae2opt$cachedRefs;
-        if (refs == null) {
-            return false;
-        }
-        final long[] sizes = this.dj2ae2opt$cachedSizes;
-        for (int i = 0, n = this.dj2ae2opt$cachedEntryCount; i < n; i++) {
-            if (refs[i].getStackSize() != sizes[i]) {
-                return false;
-            }
-        }
-        return true;
-    }
-
-
-    @Unique
-    private boolean dj2ae2opt$cachedListUnchanged() {
-        if (!this.dj2ae2opt$haveListVersion) {
-            return false;
-        }
-        final IItemList<IAEItemStack> cached = this.currentlyCached;
-        return cached instanceof IVersionedItemList
-                && ((IVersionedItemList) cached).dj2ae2opt$listVersion() == this.dj2ae2opt$cachedListVersion;
-    }
-
-    @Unique
-    private void dj2ae2opt$rememberListVersion(IItemList<IAEItemStack> list) {
-        if (list instanceof IVersionedItemList) {
-            this.dj2ae2opt$cachedListVersion = ((IVersionedItemList) list).dj2ae2opt$listVersion();
-            this.dj2ae2opt$haveListVersion = true;
-        } else {
-            this.dj2ae2opt$haveListVersion = false;
-        }
     }
 }

@@ -24,7 +24,6 @@ public final class OptimizationMixinLoader implements ILateMixinLoader {
         OptimizationConfig.load();
 
         final boolean cache = OptimizationConfig.optimizeDrawerInventoryPolling;
-        final boolean skip = cache && OptimizationConfig.skipUnchangedDrawerPolls;
         final boolean extraction = OptimizationConfig.instrumentExtractionTransactions;
         final boolean monitor = OptimizationConfig.instrumentNetworkMonitor;
         final boolean fanOut = OptimizationConfig.instrumentNetworkFanOut;
@@ -38,7 +37,6 @@ public final class OptimizationMixinLoader implements ILateMixinLoader {
                 && CompatibilityCheck.isUsable(CompatibilityCheck.checkActuallyAdditions());
 
         MixinStatus.markRequested(MixinStatus.Feature.ITEM_REPOSITORY_CACHE, cache);
-        MixinStatus.markRequested(MixinStatus.Feature.ITEM_LIST_VERSION, skip);
         MixinStatus.markRequested(MixinStatus.Feature.EXTRACTION_DIAGNOSTICS, extraction);
         MixinStatus.markRequested(MixinStatus.Feature.POWERED_EXTRACTION_CONTEXT, extraction);
         MixinStatus.markRequested(MixinStatus.Feature.NETWORK_MONITOR, monitor);

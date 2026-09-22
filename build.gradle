@@ -108,7 +108,7 @@ tasks.register('compileToolsFixturesJava', JavaCompile) {
 def toolMainClasses = ['CandidateSlotTest', 'ExtractionPairingTest', 'FanOutContextTest', 'NegativeIndexTest',
                         'Phase2MatcherTest', 'EquivTest', 'InventoryDiffTest', 'CandidateIndexTest',
                         'ItemHandlerExtractionStatsTest', 'ExternalHandlerPresenceIndexTest',
-                        'ExternalHandlerAuthorizationScopeTest', 'PrototypeEntryTest']
+                        'ExternalHandlerAuthorizationScopeTest', 'PrototypeEntryTest', 'NetworkMonitorContextTest']
 
 def toolRunTasks = toolMainClasses.collect { className ->
     tasks.register("runTool${className}", JavaExec) {

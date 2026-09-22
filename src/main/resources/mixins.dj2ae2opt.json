@@ -7,7 +7,6 @@
   "plugin": "dj2.ae2opt.core.OptimizationMixinPlugin",
   "target": "@env(DEFAULT)",
   "mixins": [
-    "MixinItemList",
     "MixinItemRepositoryInventoryCache"
   ]
 }

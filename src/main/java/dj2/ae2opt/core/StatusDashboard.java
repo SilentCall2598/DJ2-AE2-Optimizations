@@ -25,11 +25,15 @@ public final class StatusDashboard {
 
         lines.add(heading("Drawer optimizations:"));
         lines.add(featureLine("Conversion cache", MixinStatus.Feature.ITEM_REPOSITORY_CACHE));
+        lines.add(flagLine("Inventory diff (findPrecise)",
+                OptimizationConfig.optimizeDrawerInventoryPolling && OptimizationConfig.optimizeDrawerInventoryDiff,
+                MixinStatus.Feature.ITEM_REPOSITORY_CACHE));
         lines.add(aggregateLine("Negative fast path", MixinStatus.Feature.NEGATIVE_FAST_PATH,
                 MixinStatus.Feature.NEGATIVE_INDEX, MixinStatus.Feature.NEGATIVE_ATTRS,
                 MixinStatus.Feature.NEGATIVE_EPOCH_STANDARD, MixinStatus.Feature.NEGATIVE_EPOCH_COMPACTING,
                 MixinStatus.Feature.NEGATIVE_EPOCH_ATTRIBUTES, MixinStatus.Feature.NEGATIVE_FRACTIONAL));
-        lines.add(flagLine("Candidate narrowing", OptimizationConfig.optimizeDrawerCandidateNarrowing,
+        lines.add(flagLine("Candidate narrowing",
+                OptimizationConfig.optimizeDrawerNegativeExtraction && OptimizationConfig.optimizeDrawerCandidateNarrowing,
                 MixinStatus.Feature.NEGATIVE_FAST_PATH));
 
         lines.add(heading("External integrations:"));
@@ -43,14 +47,14 @@ public final class StatusDashboard {
         lines.add(heading("Production ratios:"));
         lines.add(ratioLine("Conversion cache hit rate",
                 Diagnostics.templateHits, Diagnostics.templateHits + Diagnostics.templateMisses));
-        if (OptimizationConfig.optimizeDrawerInventoryDiff) {
+        if (OptimizationConfig.optimizeDrawerInventoryPolling && OptimizationConfig.optimizeDrawerInventoryDiff) {
             lines.add(ratioLine("Direct-diff poll usage", Diagnostics.directDiffPolls, Diagnostics.pollsRebuilt));
         }
         if (OptimizationConfig.optimizeDrawerNegativeExtraction) {
             lines.add(ratioLine("Drawer negative fast path served",
                     Diagnostics.negativeServed, Diagnostics.negativeConsidered));
         }
-        if (OptimizationConfig.optimizeDrawerCandidateNarrowing) {
+        if (OptimizationConfig.optimizeDrawerNegativeExtraction && OptimizationConfig.optimizeDrawerCandidateNarrowing) {
             lines.add(ratioLine("Candidate narrowing served",
                     Diagnostics.candidateNarrowingServed, Diagnostics.candidateNarrowingEligible));
         }
@@ -95,8 +99,9 @@ public final class StatusDashboard {
                     + " candidate-index verification mismatch(es)", TextFormatting.RED));
         }
         for (MixinStatus.Feature feature : MixinStatus.Feature.values()) {
-            if (!feature.isDiagnostic() && feature.isRequested() && !feature.isApplied()) {
-                lines.add(colored(ERR + feature.label + " requested but not applied", TextFormatting.RED));
+            if (!feature.isDiagnostic() && feature.statusTag() == MixinStatus.StatusTag.ERR) {
+                lines.add(colored(ERR + feature.label + " declined by its compatibility/version gate",
+                        TextFormatting.RED));
             }
         }
         return lines;
@@ -139,40 +144,51 @@ public final class StatusDashboard {
     }
 
     private static ITextComponent featureLine(String label, MixinStatus.Feature feature) {
-        if (!feature.isRequested()) {
-            return colored(OFF + label, TextFormatting.GRAY);
-        }
-        if (feature.isApplied()) {
-            return colored(OK + label, TextFormatting.GREEN);
-        }
-        return colored(ERR + label + " (requested but not applied)", TextFormatting.RED);
+        return tagLine(label, feature.statusTag());
     }
 
     private static ITextComponent aggregateLine(String label, MixinStatus.Feature primary,
                                                  MixinStatus.Feature... supporting) {
-        if (!primary.isRequested()) {
-            return colored(OFF + label, TextFormatting.GRAY);
-        }
-        boolean anyMissing = !primary.isApplied();
+        MixinStatus.StatusTag worst = primary.statusTag();
         for (MixinStatus.Feature feature : supporting) {
-            if (feature.isRequested() && !feature.isApplied()) {
-                anyMissing = true;
+            if (severity(feature.statusTag()) > severity(worst)) {
+                worst = feature.statusTag();
             }
         }
-        if (anyMissing) {
-            return colored(ERR + label + " (requested but not fully applied)", TextFormatting.RED);
-        }
-        return colored(OK + label, TextFormatting.GREEN);
+        return tagLine(label, worst);
     }
 
-    private static ITextComponent flagLine(String label, boolean enabled, MixinStatus.Feature backing) {
-        if (!enabled) {
+    private static ITextComponent flagLine(String label, boolean effectivelyEnabled, MixinStatus.Feature backing) {
+        if (!effectivelyEnabled) {
             return colored(OFF + label, TextFormatting.GRAY);
         }
-        if (backing.isRequested() && !backing.isApplied()) {
-            return colored(ERR + label + " (backing mixin not applied)", TextFormatting.RED);
+        return tagLine(label, backing.statusTag());
+    }
+
+    private static ITextComponent tagLine(String label, MixinStatus.StatusTag tag) {
+        switch (tag) {
+            case OFF:
+                return colored(OFF + label, TextFormatting.GRAY);
+            case WAIT:
+                return colored(WAIT + label + " (target not loaded yet)", TextFormatting.YELLOW);
+            case ERR:
+                return colored(ERR + label + " (declined by compatibility/version gate)", TextFormatting.RED);
+            default:
+                return colored(OK + label, TextFormatting.GREEN);
         }
-        return colored(OK + label, TextFormatting.GREEN);
+    }
+
+    private static int severity(MixinStatus.StatusTag tag) {
+        switch (tag) {
+            case ERR:
+                return 3;
+            case WAIT:
+                return 2;
+            case OK:
+                return 1;
+            default:
+                return 0;
+        }
     }
 
     private static ITextComponent compatibilityLine(String label, CompatibilityCheck.Support support) {
@@ -180,15 +196,22 @@ public final class StatusDashboard {
             case SUPPORTED:
                 return colored(OK + label, TextFormatting.GREEN);
             case UNSUPPORTED:
-                return colored(WAIT + label + " (version mismatch, falls open to stock)", TextFormatting.YELLOW);
+                if (OptimizationConfig.allowUnverifiedModVersions) {
+                    return colored(WAIT + label + " (version mismatch, explicitly allowed unverified)",
+                            TextFormatting.YELLOW);
+                }
+                return colored(OFF + label + " (version mismatch, stock path)", TextFormatting.GRAY);
             default:
                 return colored(OFF + label + " (not installed)", TextFormatting.GRAY);
         }
     }
 
     private static ITextComponent ratioLine(String label, long served, long eligible) {
-        final String percent = eligible == 0 ? "n/a" : String.format("%.1f%%", 100.0 * served / eligible);
-        return colored(label + ": " + percent + " (" + served + "/" + eligible + ")", TextFormatting.GREEN);
+        if (eligible == 0) {
+            return colored(WAIT + label + ": n/a (no observations yet)", TextFormatting.YELLOW);
+        }
+        final String percent = String.format("%.1f%%", 100.0 * served / eligible);
+        return colored(OK + label + ": " + percent + " (" + served + "/" + eligible + ")", TextFormatting.GREEN);
     }
 
     private static ITextComponent heading(String text) {

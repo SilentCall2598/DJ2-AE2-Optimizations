@@ -68,8 +68,9 @@ public final class NetworkMonitorContext {
 
     public static int resetAtServerTickEnd() {
         NetworkMonitorContext context = CONTEXT.get();
-        int leaked = context.cellUpdateDepth + context.forceUpdateDepth;
-        if (leaked != 0 || context.cellUpdateOverflow != 0 || context.forceUpdateOverflow != 0) {
+        int leaked = context.cellUpdateDepth + context.forceUpdateDepth
+                + context.cellUpdateOverflow + context.forceUpdateOverflow;
+        if (leaked != 0) {
             context.cellUpdateDepth = 0;
             context.cellUpdateOverflow = 0;
             context.forceUpdateDepth = 0;

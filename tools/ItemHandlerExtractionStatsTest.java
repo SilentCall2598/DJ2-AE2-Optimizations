@@ -105,8 +105,8 @@ public final class ItemHandlerExtractionStatsTest {
             check("the cap admits new classes up to the limit",
                     find(ItemHandlerExtractionStats.snapshot(), CapClassB.class) != null,
                     "expected CapClassB to be tracked");
-            check("reaching the limit exactly is already reported as overflowing (no room left)",
-                    ItemHandlerExtractionStats.isOverflowing(), "expected overflowing once the cap is reached");
+            check("reaching the limit exactly is not yet reported as overflowing (nothing dropped yet)",
+                    !ItemHandlerExtractionStats.isOverflowing(), "expected not overflowing until a class is refused");
 
             final long overflowBefore = ItemHandlerExtractionStats.overflowRequests();
             ItemHandlerExtractionStats.record(CapClassC.class, null, true, 7, 0, 0);
@@ -119,7 +119,7 @@ public final class ItemHandlerExtractionStatsTest {
             check("an already-tracked class is unaffected once the cap is hit",
                     find(ItemHandlerExtractionStats.snapshot(), CapClassA.class) != null,
                     "expected CapClassA to remain tracked");
-            check("the cap is now reported as overflowing",
+            check("the cap is now reported as overflowing, since a class was actually refused",
                     ItemHandlerExtractionStats.isOverflowing(), "expected overflowing to be true");
         } finally {
             OptimizationConfig.maxItemHandlerClassesTracked = savedCap;

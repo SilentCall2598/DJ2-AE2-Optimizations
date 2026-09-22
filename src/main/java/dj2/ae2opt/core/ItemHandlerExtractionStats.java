@@ -75,6 +75,6 @@ public final class ItemHandlerExtractionStats {
     }
 
     public static boolean isOverflowing() {
-        return BY_CLASS.size() >= OptimizationConfig.maxItemHandlerClassesTracked;
+        return overflowRequests > 0;
     }
 }

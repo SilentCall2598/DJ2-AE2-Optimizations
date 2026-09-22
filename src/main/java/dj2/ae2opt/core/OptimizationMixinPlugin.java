@@ -4,19 +4,11 @@ import org.objectweb.asm.tree.ClassNode;
 import org.spongepowered.asm.mixin.extensibility.IMixinConfigPlugin;
 import org.spongepowered.asm.mixin.extensibility.IMixinInfo;
 
-import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 
 
 public final class OptimizationMixinPlugin implements IMixinConfigPlugin {
-
-    private static final List<String> APPLIED = new ArrayList<String>();
-
-    public static List<String> applied() {
-        return Collections.unmodifiableList(APPLIED);
-    }
 
     @Override
     public void onLoad(String mixinPackage) {
@@ -39,9 +31,6 @@ public final class OptimizationMixinPlugin implements IMixinConfigPlugin {
         if (!OptimizationConfig.allowUnverifiedModVersions
                 && CompatibilityCheck.checkEarly() == CompatibilityCheck.Support.UNSUPPORTED) {
             return false;
-        }
-        if (mixinClassName.endsWith("MixinItemList")) {
-            return OptimizationConfig.optimizeDrawerInventoryPolling && OptimizationConfig.skipUnchangedDrawerPolls;
         }
         if (mixinClassName.endsWith("MixinItemRepositoryInventoryCache")) {
             return OptimizationConfig.optimizeDrawerInventoryPolling;
@@ -107,7 +96,6 @@ public final class OptimizationMixinPlugin implements IMixinConfigPlugin {
 
     @Override
     public void postApply(String targetClassName, ClassNode targetClass, String mixinClassName, IMixinInfo mixinInfo) {
-        APPLIED.add(mixinClassName.substring(mixinClassName.lastIndexOf('.') + 1) + " -> " + targetClassName);
         MixinStatus.markApplied(mixinClassName, targetClassName);
     }
 }

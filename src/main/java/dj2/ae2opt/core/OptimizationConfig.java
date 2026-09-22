@@ -24,9 +24,6 @@ public final class OptimizationConfig {
     public static boolean optimizeDrawerInventoryDiff = true;
 
 
-    public static boolean skipUnchangedDrawerPolls = false;
-
-
     public static boolean autoDisableTemplateCacheOnLowHitRate = true;
 
 
@@ -116,7 +113,6 @@ public final class OptimizationConfig {
 
         optimizeDrawerInventoryPolling = bool(properties, "optimizeDrawerInventoryPolling", optimizeDrawerInventoryPolling);
         optimizeDrawerInventoryDiff = bool(properties, "optimizeDrawerInventoryDiff", optimizeDrawerInventoryDiff);
-        skipUnchangedDrawerPolls = bool(properties, "skipUnchangedDrawerPolls", skipUnchangedDrawerPolls);
         autoDisableTemplateCacheOnLowHitRate = bool(properties, "autoDisableTemplateCacheOnLowHitRate", autoDisableTemplateCacheOnLowHitRate);
         maxLivePrototypesPerBus = clamp(integer(properties, "maxLivePrototypesPerBus", maxLivePrototypesPerBus), 64, 1048576);
         instrumentExtractionTransactions = bool(properties, "instrumentExtractionTransactions", instrumentExtractionTransactions);
@@ -168,12 +164,6 @@ public final class OptimizationConfig {
             writer.write("# per-tick throwaway allocation; falls back to the exact prior cycle whenever identity\n");
             writer.write("# has not yet been confirmed stable for this storage bus.\n");
             writer.write("optimizeDrawerInventoryDiff = " + optimizeDrawerInventoryDiff + "\n\n");
-            writer.write("# EXPERIMENTAL. Skip the rebuild entirely when the drawers report the same prototypes\n");
-            writer.write("# and counts as the previous poll and nothing has mutated the cached list since.\n");
-            writer.write("# Measured on a real DJ2 base: only 15.2 percent of polls qualified, and proving the\n");
-            writer.write("# other 84.8 percent unchanged cost more than the skips saved - it profiled no better\n");
-            writer.write("# than stock AE2, and worse than the conversion cache alone. Kept for idle networks.\n");
-            writer.write("skipUnchangedDrawerPolls = " + skipUnchangedDrawerPolls + "\n\n");
             writer.write("# Stop using the conversion cache on a storage bus whose prototypes are not stable by\n");
             writer.write("# identity, rather than paying for lookups that never hit.\n");
             writer.write("autoDisableTemplateCacheOnLowHitRate = " + autoDisableTemplateCacheOnLowHitRate + "\n\n");
@@ -206,7 +196,7 @@ public final class OptimizationConfig {
             writer.write("maxItemHandlerClassesTracked = " + maxItemHandlerClassesTracked + "\n\n");
             writer.write("# EXPERIMENTAL. Proven-absent short-circuit for ItemHandlerAdapter.extractItems, for\n");
             writer.write("# the specific IItemHandler integrations audited and version-gated below (Ender\n");
-            writer.write("# Utilities JSU, Actually Additions TileEntityInventoryBase). Any other handler runs\n");
+            writer.write("# Utilities JSU, Actually Additions Large Storage Crate). Any other handler runs\n");
             writer.write("# unchanged. Falls back to the exact stock scan whenever the index cannot prove\n");
             writer.write("# absence, is not built, or the owning mod is absent or a different version.\n");
             writer.write("optimizeExternalItemHandlerNegativeExtraction = "

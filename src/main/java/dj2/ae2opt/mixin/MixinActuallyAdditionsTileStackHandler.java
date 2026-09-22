@@ -31,7 +31,8 @@ public abstract class MixinActuallyAdditionsTileStackHandler extends ItemStackHa
 
     @Unique
     private boolean dj2ae2opt$isAuthorizedOwner() {
-        return this.this$0 instanceof TileEntityGiantChestLarge;
+        final TileEntityInventoryBase owner = this.this$0;
+        return owner != null && owner.getClass() == TileEntityGiantChestLarge.class;
     }
 
     @Inject(method = "onContentsChanged(I)V", at = @At("HEAD"), require = 1)
@@ -39,13 +40,11 @@ public abstract class MixinActuallyAdditionsTileStackHandler extends ItemStackHa
         if (!this.dj2ae2opt$isAuthorizedOwner()) {
             return;
         }
-        ExternalHandlerPresenceIndex index = this.dj2ae2opt$index;
+        final ExternalHandlerPresenceIndex index = this.dj2ae2opt$index;
         if (index == null) {
-            index = new ExternalHandlerPresenceIndex();
-            this.dj2ae2opt$index = index;
+            return;
         }
         index.markDirty();
-        MixinStatus.Feature.ACTUALLY_ADDITIONS_INTEGRATION.markRuntimeHit();
         Diagnostics.externalHandlerPresenceInvalidated();
     }
 
@@ -59,6 +58,7 @@ public abstract class MixinActuallyAdditionsTileStackHandler extends ItemStackHa
         if (!this.dj2ae2opt$isAuthorizedOwner()) {
             return true;
         }
+        MixinStatus.Feature.ACTUALLY_ADDITIONS_INTEGRATION.markRuntimeHit();
         ExternalHandlerPresenceIndex index = this.dj2ae2opt$index;
         if (index == null) {
             index = new ExternalHandlerPresenceIndex();

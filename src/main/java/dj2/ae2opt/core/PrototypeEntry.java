@@ -28,8 +28,12 @@ public final class PrototypeEntry {
         }
         final NBTTagCompound currentTag = prototype.getTagCompound();
         if (this.tagSnapshot == null) {
-            return currentTag == null;
+            if (currentTag != null) {
+                return false;
+            }
+        } else if (currentTag == null || !this.tagSnapshot.equals(currentTag)) {
+            return false;
         }
-        return currentTag != null && this.tagSnapshot.equals(currentTag);
+        return prototype.areCapsCompatible(this.template.getDefinition());
     }
 }

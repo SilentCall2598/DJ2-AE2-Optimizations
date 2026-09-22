@@ -138,11 +138,6 @@ public abstract class MixinTileEntityController implements IDrawerPresenceHolder
     }
 
     @Override
-    public void dj2ae2opt$markTopologyDirty() {
-        this.dj2ae2opt$topologyDirty = true;
-    }
-
-    @Override
     public boolean dj2ae2opt$mightContain(ItemStack request) {
         if (this.dj2ae2opt$keys == null
                 || this.dj2ae2opt$topologyDirty

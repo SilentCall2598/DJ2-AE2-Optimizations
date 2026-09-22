@@ -160,42 +160,28 @@ public final class EquivTest {
 
     static final class FastCache implements Cache {
         final Repository repo; ItemList currentlyCached = new ItemList();
-        final boolean skipUnchanged;
         IdentityHashMap<Stack, Object[]> templates = new IdentityHashMap<Stack, Object[]>();
-        Stack[] snapshotProtos; long[] snapshotCounts; int snapshotLength;
-        int cachedListVersion; boolean haveListVersion;
-        AeStack[] cachedRefs; long[] cachedSizes; int cachedEntryCount;
         int hits, lookups; boolean disabled;
-        int skips, prunes, pruned, clears;
+        int prunes, pruned;
         int pollLookups, pollHits, judgedRebuilds;
         long judgedLookups, judgedHits;
         static final int WARMUP = 0, JUDGING = 1, CONFIRMED = 2, GIVEN_UP = 3;
         int stability = WARMUP;
-        int allocatedProtoArrays, allocatedCountArrays;
+        int allocatedProtoArrays;
         int conversions, templateCopies;
 
-        FastCache(Repository repo, boolean skipUnchanged) { this.repo = repo; this.skipUnchanged = skipUnchanged; }
+        FastCache(Repository repo) { this.repo = repo; }
         public ItemList cached() { return currentlyCached; }
 
         public List<AeStack> update() {
             List<Object[]> records = repo.getAllItems();
             int count = records.size();
 
-            boolean needSkipSnapshot = skipUnchanged && !disabled;
-
-            if (needSkipSnapshot && repositoryUnchanged(count, records)
-                    && cachedListUnchanged() && cachedContentsUnchanged()) {
-                skips++;
-                return Collections.emptyList();
-            }
-
             boolean needPruneSnapshot = !disabled && templates != null
                     && templates.size() > count * 2 + 16;
 
-            Stack[] protos = (needSkipSnapshot || needPruneSnapshot) ? new Stack[count] : null;
-            long[] counts = needSkipSnapshot ? new long[count] : null;
+            Stack[] protos = needPruneSnapshot ? new Stack[count] : null;
             if (protos != null) allocatedProtoArrays++;
-            if (counts != null) allocatedCountArrays++;
 
             ItemList currentlyOnStorage = new ItemList();
             pollLookups = 0; pollHits = 0;
@@ -204,10 +190,7 @@ public final class EquivTest {
             for (Object[] rec : records) {
                 Stack prototype = (Stack) rec[0];
                 long size = (Integer) rec[1];
-                if (index < count) {
-                    if (protos != null) protos[index] = prototype;
-                    if (counts != null) counts[index] = size;
-                }
+                if (index < count && protos != null) protos[index] = prototype;
                 index++;
                 AeStack fresh;
                 if (disabled) {
@@ -230,13 +213,6 @@ public final class EquivTest {
             currentlyCached = currentlyOnStorage;
 
             boolean aligned = index == count;
-            if (needSkipSnapshot && aligned) {
-                snapshotProtos = protos; snapshotCounts = counts; snapshotLength = count;
-                cachedListVersion = currentlyOnStorage.version; haveListVersion = true;
-                rememberCacheContents(currentlyOnStorage, count);
-            } else {
-                forgetSkipState();
-            }
             if (needPruneSnapshot && aligned && protos != null) prune(protos, count);
             judgeIdentityStability();
             return changes;
@@ -265,12 +241,7 @@ public final class EquivTest {
             judgedRebuilds++; judgedLookups += pollLookups; judgedHits += pollHits;
             if (judgedRebuilds < 3 || judgedLookups < 512L) return;
             if (judgedHits * 4L >= judgedLookups) { stability = CONFIRMED; return; }
-            stability = GIVEN_UP; disabled = true; templates = null; forgetSkipState();
-        }
-
-        void forgetSkipState() {
-            snapshotProtos = null; snapshotCounts = null; snapshotLength = 0;
-            haveListVersion = false; cachedRefs = null; cachedSizes = null; cachedEntryCount = 0;
+            stability = GIVEN_UP; disabled = true; templates = null;
         }
 
         void prune(Stack[] protos, int count) {
@@ -284,40 +255,6 @@ public final class EquivTest {
             }
             prunes++; pruned += templates.size() - kept.size();
             templates = kept;
-        }
-
-        boolean repositoryUnchanged(int count, List<Object[]> records) {
-            if (snapshotProtos == null || snapshotLength != count || snapshotProtos.length < count) return false;
-            int index = 0;
-            for (Object[] rec : records) {
-                if (index >= count || rec[0] != snapshotProtos[index]
-                        || ((Integer) rec[1]).longValue() != snapshotCounts[index]) return false;
-                index++;
-            }
-            return index == count;
-        }
-
-        void rememberCacheContents(ItemList list, int capacity) {
-            AeStack[] refs = new AeStack[capacity];
-            long[] sizes = new long[capacity];
-            int index = 0;
-            for (AeStack is : list) {
-                if (index >= capacity) { cachedRefs = null; cachedEntryCount = 0; return; }
-                refs[index] = is; sizes[index] = is.size; index++;
-            }
-            cachedRefs = refs; cachedSizes = sizes; cachedEntryCount = index;
-        }
-
-        boolean cachedContentsUnchanged() {
-            if (cachedRefs == null) return false;
-            for (int i = 0; i < cachedEntryCount; i++) {
-                if (cachedRefs[i].size != cachedSizes[i]) return false;
-            }
-            return true;
-        }
-
-        boolean cachedListUnchanged() {
-            return haveListVersion && currentlyCached.version == cachedListVersion;
         }
     }
 
@@ -370,12 +307,12 @@ public final class EquivTest {
 
     static int failures = 0;
 
-    static void run(String name, long seed, boolean skipUnchanged, boolean unstable, int steps) {
+    static void run(String name, long seed, boolean unstable, int steps) {
         Random rs = new Random(seed), rf = new Random(seed);
         Repository repoA = buildWorld(new Random(seed), unstable, 12);
         Repository repoB = buildWorld(new Random(seed), unstable, 12);
         StockCache stock = new StockCache(repoA);
-        FastCache fast = new FastCache(repoB, skipUnchanged);
+        FastCache fast = new FastCache(repoB);
 
         stock.update(); fast.update();
 
@@ -427,7 +364,7 @@ public final class EquivTest {
                 failures++; return;
             }
         }
-        System.out.println("pass  " + name + "  (" + steps + " steps, " + fast.skips + " polls skipped, "
+        System.out.println("pass  " + name + "  (" + steps + " steps, "
                 + fast.hits + "/" + fast.lookups + " conversion cache hits, "
                 + fast.prunes + " prunes dropping " + fast.pruned
                 + (fast.disabled ? ", cache self-disabled" : "") + ")");
@@ -443,7 +380,7 @@ public final class EquivTest {
         repoA.drawers.add(da); repoB.drawers.add(db);
 
         StockCache stock = new StockCache(repoA);
-        FastCache fast = new FastCache(repoB, true);
+        FastCache fast = new FastCache(repoB);
         stock.update(); fast.update();
 
         Key key = proto.key();
@@ -464,14 +401,8 @@ public final class EquivTest {
             failures++; return;
         }
 
-        int skipsBefore = fast.skips;
         List<String> changesA = normalize(stock.update()), changesB = normalize(fast.update());
 
-        if (fast.skips != skipsBefore) {
-            System.out.println("FAIL " + name + ": the poll was skipped, leaving the network short by "
-                    + (long) extractions * amount);
-            failures++; return;
-        }
         if (!changesA.equals(changesB)) {
             System.out.println("FAIL " + name + ": corrections differ:\n  stock=" + changesA + "\n  fast =" + changesB);
             failures++; return;
@@ -494,7 +425,7 @@ public final class EquivTest {
             repoA.drawers.add(da); repoB.drawers.add(db);
         }
         StockCache stock = new StockCache(repoA);
-        FastCache fast = new FastCache(repoB, false);
+        FastCache fast = new FastCache(repoB);
 
         stock.update(); fast.update();
         if (fast.pollHits != 0 || fast.pollLookups != types) {
@@ -524,18 +455,13 @@ public final class EquivTest {
                     + " times on a repository whose live set never changed");
             failures++; return;
         }
-        if (fast.allocatedCountArrays != 0) {
-            System.out.println("FAIL " + name + ": allocated " + fast.allocatedCountArrays
-                    + " skip-snapshot count arrays with the skip disabled");
-            failures++; return;
-        }
         if (fast.allocatedProtoArrays != 0) {
             System.out.println("FAIL " + name + ": allocated " + fast.allocatedProtoArrays
-                    + " prototype arrays with the skip disabled and no prune due");
+                    + " prototype arrays with no prune due");
             failures++; return;
         }
         System.out.println("pass  " + name + "  (" + fast.hits + "/" + fast.lookups
-                + " hits, no self-disable, no prune, zero snapshot arrays allocated)");
+                + " hits, no self-disable, no prune, zero prototype arrays allocated)");
     }
 
 
@@ -547,7 +473,7 @@ public final class EquivTest {
             d.prototype = new Stack("stable_item_" + i, 0, null); d.count = 10 + i;
             repo.drawers.add(d);
         }
-        FastCache fast = new FastCache(repo, false);
+        FastCache fast = new FastCache(repo);
         fast.update();
         fast.update();
 
@@ -589,7 +515,7 @@ public final class EquivTest {
             repoA.drawers.add(da); repoB.drawers.add(db);
         }
         StockCache stock = new StockCache(repoA);
-        FastCache fast = new FastCache(repoB, false);
+        FastCache fast = new FastCache(repoB);
         for (int i = 0; i < 8; i++) { stock.update(); fast.update(); }
         if (!fast.disabled) {
             System.out.println("FAIL " + name + ": expected the cache to give up on unstable identities");
@@ -685,19 +611,17 @@ public final class EquivTest {
         vendingRegression(100, 999);
 
         for (long seed = 1; seed <= 20; seed++) {
-            run("skip=on  stable   seed" + seed, seed, true, false, 4000);
+            run("stable   seed" + seed, seed, false, 4000);
         }
         for (long seed = 1; seed <= 5; seed++) {
-            run("skip=off stable   seed" + seed, seed, false, false, 4000);
-            run("skip=on  unstable seed" + seed, seed, true, true, 4000);
+            run("unstable seed" + seed, seed, true, 4000);
         }
         String[] few = ITEMS;
         String[] many = new String[120];
         for (int i = 0; i < many.length; i++) many[i] = "churn_item_" + i;
         ITEMS = many;
         for (long seed = 1; seed <= 5; seed++) {
-            run("skip=on  churn    seed" + seed, seed, true, false, 4000);
-            run("skip=off churn    seed" + seed, seed, false, false, 4000);
+            run("churn    seed" + seed, seed, false, 4000);
         }
         ITEMS = few;
         System.out.println(failures == 0 ? "\nALL PASS" : "\n" + failures + " FAILURES");

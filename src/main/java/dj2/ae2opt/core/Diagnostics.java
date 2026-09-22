@@ -132,7 +132,6 @@ public final class Diagnostics {
     private static final long[] EPOCH_BUMPS = new long[3];
     private static boolean loggedOptimizedPath;
     private static boolean loggedTemplateHit;
-    private static boolean loggedSkip;
     private static boolean loggedExtractionDiagnostics;
     private static boolean loggedPoweredExtractionContext;
     private static boolean loggedItemHandlerExtraction;
@@ -140,7 +139,6 @@ public final class Diagnostics {
 
     private static long serverTicks;
 
-    public static long pollsSkipped;
     public static long pollsRebuilt;
     public static long changesPosted;
     public static long directDiffPolls;
@@ -301,6 +299,7 @@ public final class Diagnostics {
         presenceDictConvertibleIndexed += dictConvertible;
         presenceOreKeysAdded += oreKeys;
         if (fractional > 0) {
+            MixinStatus.Feature.NEGATIVE_FRACTIONAL.markRuntimeHit();
             presenceRebuildsWithFractional++;
         }
     }
@@ -532,15 +531,6 @@ public final class Diagnostics {
             RUNTIME.info("ACTIVE: optimized Storage Drawers InventoryCache path executed. "
                     + "Counter store {}.", STORE_ID);
             RUNTIME.info("Conversion cache is now servicing AE2 storage bus polling.");
-        }
-    }
-
-    public static void pollSkipped() {
-        pollsSkipped++;
-        if (!loggedSkip) {
-            loggedSkip = true;
-            MixinStatus.Feature.ITEM_LIST_VERSION.markRuntimeHit();
-            RUNTIME.info("VERIFIED: first unchanged Storage Drawers poll skipped.");
         }
     }
 
@@ -825,11 +815,10 @@ public final class Diagnostics {
     }
 
     public static List<String> summaryLines() {
-        long polls = pollsSkipped + pollsRebuilt;
         long lookups = templateHits + templateMisses;
         List<String> lines = new ArrayList<String>();
-        lines.add(String.format("drawer polls      : %d total, %d rebuilt, %d skipped (%s), %d change entries posted",
-                polls, pollsRebuilt, pollsSkipped, percent(pollsSkipped, polls), changesPosted));
+        lines.add(String.format("drawer polls      : %d rebuilt, %d change entries posted",
+                pollsRebuilt, changesPosted));
         if (OptimizationConfig.optimizeDrawerInventoryDiff) {
             lines.add(String.format("direct diff       : %d of %d rebuilt polls used findPrecise diffing (%s); "
                     + "the rest fell back to the negate/merge cycle pending confirmed identity stability",
