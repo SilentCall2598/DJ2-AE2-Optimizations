@@ -42,7 +42,9 @@ public final class MixinStatus {
         ACTUALLY_ADDITIONS_INTEGRATION("Actually Additions Large Storage Crate presence index",
                 "MixinActuallyAdditionsTileStackHandler"),
         THAUMIC_ENERGISTICS_INTEGRATION("Thaumic Energistics essentia bus incremental update",
-                "MixinPartEssentiaStorageBus");
+                "MixinPartEssentiaStorageBus"),
+        THAUMIC_ENERGISTICS_SIMULATION_GUARD("Thaumic Energistics SIMULATE suppression guard",
+                "MixinEssentiaContainerAdapter");
 
         public final String label;
         public final String mixinSimpleName;
@@ -83,6 +85,7 @@ public final class MixinStatus {
                 case ENDER_UTILITIES_JSU_AUTHORIZATION:
                 case ACTUALLY_ADDITIONS_INTEGRATION:
                 case THAUMIC_ENERGISTICS_INTEGRATION:
+                case THAUMIC_ENERGISTICS_SIMULATION_GUARD:
                     return false;
                 default:
                     return true;
@@ -252,6 +255,8 @@ public final class MixinStatus {
                 return " (waiting for an extraction attempt against a JSU's item handler)";
             case THAUMIC_ENERGISTICS_INTEGRATION:
                 return " (waiting for an attached-side neighbor notification on an essentia storage bus)";
+            case THAUMIC_ENERGISTICS_SIMULATION_GUARD:
+                return " (waiting for a SIMULATE essentia injection against a storage bus's connected container)";
             case ITEM_REPOSITORY_CACHE:
                 return " (waiting for a storage bus to poll a drawer network)";
             default:

@@ -139,6 +139,7 @@ public final class Diagnostics {
     private static boolean loggedCellUpdate;
     private static boolean loggedForceUpdate;
     private static boolean loggedTeAttachedSide;
+    private static boolean loggedTeSimulationGuard;
 
     private static long serverTicks;
 
@@ -175,6 +176,9 @@ public final class Diagnostics {
     public static long teFailOpenNoBaseline;
     public static long teFailOpenMissingAccess;
     public static long teFailOpenExceptions;
+    public static long teSimulationSuppressed;
+    public static long teBaselineInvalidatedByFullUpdate;
+    public static long teSimulationContextLeaksReset;
 
 
     public static long extractionCalls;
@@ -661,6 +665,23 @@ public final class Diagnostics {
         }
     }
 
+    public static void teSimulationGuardEntered() {
+        if (!loggedTeSimulationGuard) {
+            loggedTeSimulationGuard = true;
+            MixinStatus.Feature.THAUMIC_ENERGISTICS_SIMULATION_GUARD.markRuntimeHit();
+            RUNTIME.info("ACTIVE: first Thaumic Energistics SIMULATE essentia injection observed; "
+                    + "its reversible container mutation is now suppressed from the incremental update.");
+        }
+    }
+
+    public static void teSimulationSuppressed() {
+        teSimulationSuppressed++;
+    }
+
+    public static void teBaselineInvalidatedByFullUpdate() {
+        teBaselineInvalidatedByFullUpdate++;
+    }
+
     public static void templateHit() {
         templateHits++;
         if (!loggedTemplateHit) {
@@ -738,6 +759,12 @@ public final class Diagnostics {
             int leaked = NetworkMonitorContext.resetAtServerTickEnd();
             if (leaked > 0) {
                 networkMonitorContextLeaksReset += leaked;
+            }
+        }
+        if (OptimizationConfig.optimizeThaumicEnergisticsIncrementalUpdate) {
+            int leaked = EssentiaSimulationContext.resetAtServerTickEnd();
+            if (leaked > 0) {
+                teSimulationContextLeaksReset += leaked;
             }
         }
     }
@@ -1052,6 +1079,15 @@ public final class Diagnostics {
         lines.add(String.format("fail-open         : %d total (%d no baseline yet, %d missing access, "
                 + "%d exception)",
                 teFailOpenEvents, teFailOpenNoBaseline, teFailOpenMissingAccess, teFailOpenExceptions));
+        lines.add(String.format("simulation guard  : %d SIMULATE-triggered notifications fully suppressed "
+                + "(no delta, no broad update)", teSimulationSuppressed));
+        if (teSimulationContextLeaksReset > 0) {
+            lines.add("simulation leaks  : " + teSimulationContextLeaksReset
+                    + " leaked simulation-context depth level(s) reset at tick end "
+                    + "(a target threw without returning normally)");
+        }
+        lines.add(String.format("baseline resets   : %d invalidated by a legitimate full update "
+                + "(access/filter/upgrade/boot-power change)", teBaselineInvalidatedByFullUpdate));
         lines.add("integration mod   : Thaumic Energistics " + CompatibilityCheck.checkThaumicEnergistics());
         return lines;
     }

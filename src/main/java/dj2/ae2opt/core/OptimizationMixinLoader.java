@@ -61,6 +61,7 @@ public final class OptimizationMixinLoader implements ILateMixinLoader {
         MixinStatus.markRequested(MixinStatus.Feature.ENDER_UTILITIES_JSU_AUTHORIZATION, enderUtilities);
         MixinStatus.markRequested(MixinStatus.Feature.ACTUALLY_ADDITIONS_INTEGRATION, actuallyAdditions);
         MixinStatus.markRequested(MixinStatus.Feature.THAUMIC_ENERGISTICS_INTEGRATION, thaumicEnergistics);
+        MixinStatus.markRequested(MixinStatus.Feature.THAUMIC_ENERGISTICS_SIMULATION_GUARD, thaumicEnergistics);
 
         List<String> configs = new ArrayList<String>(11);
         configs.add(OPTIMIZATION_CONFIG);

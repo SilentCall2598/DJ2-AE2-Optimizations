@@ -78,7 +78,8 @@ public final class OptimizationMixinPlugin implements IMixinConfigPlugin {
             return OptimizationConfig.optimizeExternalItemHandlerNegativeExtraction
                     && CompatibilityCheck.isUsable(CompatibilityCheck.checkActuallyAdditions());
         }
-        if (mixinClassName.endsWith("MixinPartEssentiaStorageBus")) {
+        if (mixinClassName.endsWith("MixinPartEssentiaStorageBus")
+                || mixinClassName.endsWith("MixinEssentiaContainerAdapter")) {
             return OptimizationConfig.optimizeThaumicEnergisticsIncrementalUpdate
                     && CompatibilityCheck.isUsable(CompatibilityCheck.checkThaumicEnergistics());
         }

@@ -6,6 +6,7 @@ import appeng.api.networking.security.IActionSource;
 import appeng.api.networking.storage.IStorageGrid;
 import appeng.api.storage.data.IItemList;
 import dj2.ae2opt.core.Diagnostics;
+import dj2.ae2opt.core.EssentiaSimulationContext;
 import dj2.ae2opt.core.InventoryDiff;
 import dj2.ae2opt.core.MixinStatus;
 import net.minecraft.tileentity.TileEntity;
@@ -13,7 +14,9 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.Redirect;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import thaumicenergistics.api.storage.IAEEssentiaStack;
 import thaumicenergistics.api.storage.IEssentiaStorageChannel;
 import thaumicenergistics.integration.appeng.grid.EssentiaContainerAdapter;
@@ -50,6 +53,11 @@ public abstract class MixinPartEssentiaStorageBus extends PartSharedEssentiaBus 
             require = 1)
     private MENetworkEvent dj2ae2opt$maybeIncrementalUpdate(IGrid grid, MENetworkEvent event) {
         Diagnostics.teAttachedSideNotification();
+
+        if (EssentiaSimulationContext.isActive()) {
+            Diagnostics.teSimulationSuppressed();
+            return event;
+        }
 
         try {
             final TileEntity currentTE = this.getConnectedTE();
@@ -127,6 +135,14 @@ public abstract class MixinPartEssentiaStorageBus extends PartSharedEssentiaBus 
         } catch (Throwable t) {
             Diagnostics.teFailOpenException(t);
             return grid.postEvent(event);
+        }
+    }
+
+    @Inject(method = "triggerUpdate()V", at = @At("HEAD"), require = 1)
+    private void dj2ae2opt$invalidateSnapshotOnFullUpdate(CallbackInfo ci) {
+        if (this.dj2ae2opt$lastSnapshot != null) {
+            this.dj2ae2opt$lastSnapshot = null;
+            Diagnostics.teBaselineInvalidatedByFullUpdate();
         }
     }
 }

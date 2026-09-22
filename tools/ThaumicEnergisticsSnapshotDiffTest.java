@@ -1,3 +1,4 @@
+import dj2.ae2opt.core.EssentiaSimulationContext;
 import dj2.ae2opt.core.InventoryDiff;
 
 import java.util.ArrayList;
@@ -73,7 +74,7 @@ public final class ThaumicEnergisticsSnapshotDiffTest {
 
 
     enum OutcomeKind {
-        TOPOLOGY_CHANGED, FAIL_OPEN_NO_BASELINE, DELTA_POSTED, NO_DELTA
+        TOPOLOGY_CHANGED, FAIL_OPEN_NO_BASELINE, DELTA_POSTED, NO_DELTA, SIMULATION_SUPPRESSED
     }
 
     static final class Outcome {
@@ -90,8 +91,17 @@ public final class ThaumicEnergisticsSnapshotDiffTest {
     static final class FakeBus {
         Object lastConnectedContainer;
         FakeEssentiaList lastSnapshot;
+        boolean simulationActive;
+
+        void triggerFullUpdate() {
+            this.lastSnapshot = null;
+        }
 
         Outcome onNeighborChanged(Object currentContainer, FakeEssentiaList currentSnapshot) {
+            if (this.simulationActive) {
+                return new Outcome(OutcomeKind.SIMULATION_SUPPRESSED, null);
+            }
+
             if (currentContainer != this.lastConnectedContainer) {
                 this.lastConnectedContainer = currentContainer;
                 this.lastSnapshot = null;
@@ -251,6 +261,142 @@ public final class ThaumicEnergisticsSnapshotDiffTest {
     }
 
 
+    static void simulateInjectRoundTripIsFullySuppressed() {
+        final FakeBus bus = new FakeBus();
+        final FakeEssentiaList baseline = new FakeEssentiaList();
+        baseline.add(new FakeEssentiaStack(1, 100));
+        bus.onNeighborChanged("containerA", baseline);
+        bus.onNeighborChanged("containerA", baseline);
+
+        bus.simulationActive = true;
+
+        final FakeEssentiaList temporarilyAdded = new FakeEssentiaList();
+        temporarilyAdded.add(new FakeEssentiaStack(1, 110));
+        final Outcome addOutcome = bus.onNeighborChanged("containerA", temporarilyAdded);
+        check("a SIMULATE injectItems' temporary addToContainer mutation is fully suppressed, "
+                + "not reported as an incremental delta",
+                addOutcome.kind == OutcomeKind.SIMULATION_SUPPRESSED, String.valueOf(addOutcome.kind));
+        check("a suppressed notification posts no deltas at all", addOutcome.deltas == null, "n/a");
+
+        final FakeEssentiaList undone = new FakeEssentiaList();
+        undone.add(new FakeEssentiaStack(1, 100));
+        final Outcome undoOutcome = bus.onNeighborChanged("containerA", undone);
+        check("the matching takeFromContainer undo notification is also fully suppressed",
+                undoOutcome.kind == OutcomeKind.SIMULATION_SUPPRESSED, String.valueOf(undoOutcome.kind));
+
+        bus.simulationActive = false;
+
+        check("the persistent baseline was never advanced to the temporary simulated state, still 100",
+                bus.lastSnapshot.findPrecise(new FakeEssentiaStack(1, 0)).amount == 100L, "n/a");
+
+        final FakeEssentiaList realChange = new FakeEssentiaList();
+        realChange.add(new FakeEssentiaStack(1, 105));
+        final Outcome realOutcome = bus.onNeighborChanged("containerA", realChange);
+        check("the next real external change after the suppressed round trip reports its own exact delta",
+                realOutcome.kind == OutcomeKind.DELTA_POSTED, String.valueOf(realOutcome.kind));
+        check("the real delta is exactly +5 (100 -> 105), uncontaminated by the suppressed simulation",
+                byAspect(realOutcome.deltas).get(1) == 5L, realOutcome.deltas.toString());
+    }
+
+    static void simulationContextNestingStaysBalanced() {
+        check("not active before entering", !EssentiaSimulationContext.isActive(), "n/a");
+        EssentiaSimulationContext.enter();
+        check("active after entering", EssentiaSimulationContext.isActive(), "n/a");
+        EssentiaSimulationContext.enter();
+        check("still active while nested two levels deep", EssentiaSimulationContext.isActive(), "n/a");
+        EssentiaSimulationContext.exit();
+        check("still active after exiting only the inner level", EssentiaSimulationContext.isActive(), "n/a");
+        EssentiaSimulationContext.exit();
+        check("inactive after exiting both levels", !EssentiaSimulationContext.isActive(), "n/a");
+    }
+
+    static void simulationContextLeakIsRecoveredAtTickEnd() {
+        EssentiaSimulationContext.enter();
+        EssentiaSimulationContext.enter();
+        check("active before recovery", EssentiaSimulationContext.isActive(), "n/a");
+        final int leaked = EssentiaSimulationContext.resetAtServerTickEnd();
+        check("tick-end recovery reports the exact leaked depth", leaked == 2, "leaked=" + leaked);
+        check("inactive immediately after recovery", !EssentiaSimulationContext.isActive(), "n/a");
+        final int leakedAgain = EssentiaSimulationContext.resetAtServerTickEnd();
+        check("a second recovery call reports nothing left to recover", leakedAgain == 0,
+                "leaked=" + leakedAgain);
+    }
+
+    static void simulationContextOverflowStaysBalanced() {
+        for (int i = 0; i < 8; i++) {
+            EssentiaSimulationContext.enter();
+        }
+        check("still active at the depth cap", EssentiaSimulationContext.isActive(), "n/a");
+        EssentiaSimulationContext.enter();
+        EssentiaSimulationContext.enter();
+        check("still active past the depth cap, the overflow is absorbed rather than lost",
+                EssentiaSimulationContext.isActive(), "n/a");
+        for (int i = 0; i < 10; i++) {
+            EssentiaSimulationContext.exit();
+        }
+        check("exiting exactly as many times as entered, including overflow, returns to inactive",
+                !EssentiaSimulationContext.isActive(), "n/a");
+    }
+
+
+    static void fullUpdateInvalidatesBaselineWhenContentBecomesHidden() {
+        final FakeBus bus = new FakeBus();
+        final FakeEssentiaList visible = new FakeEssentiaList();
+        visible.add(new FakeEssentiaStack(1, 50));
+        bus.onNeighborChanged("containerA", visible);
+        bus.onNeighborChanged("containerA", visible);
+
+        bus.triggerFullUpdate();
+
+        final FakeEssentiaList nowHidden = new FakeEssentiaList();
+        final Outcome outcome = bus.onNeighborChanged("containerA", nowHidden);
+        check("the notification right after a legitimate full update (access/storage-filter making "
+                + "content invisible) falls open instead of reporting the visibility change as a "
+                + "content delta",
+                outcome.kind == OutcomeKind.FAIL_OPEN_NO_BASELINE, String.valueOf(outcome.kind));
+    }
+
+    static void fullUpdateInvalidatesBaselineWhenContentBecomesVisible() {
+        final FakeBus bus = new FakeBus();
+        final FakeEssentiaList hidden = new FakeEssentiaList();
+        bus.onNeighborChanged("containerA", hidden);
+        bus.onNeighborChanged("containerA", hidden);
+
+        bus.triggerFullUpdate();
+
+        final FakeEssentiaList nowVisible = new FakeEssentiaList();
+        nowVisible.add(new FakeEssentiaStack(1, 40));
+        final Outcome outcome = bus.onNeighborChanged("containerA", nowVisible);
+        check("a config change that newly reveals content also falls open after a full update, not "
+                + "reporting a phantom delta for content AE2 already learned about through the broad "
+                + "refresh",
+                outcome.kind == OutcomeKind.FAIL_OPEN_NO_BASELINE, String.valueOf(outcome.kind));
+    }
+
+    static void noDuplicateDeltaAfterFullUpdateAndBaselineReestablishes() {
+        final FakeBus bus = new FakeBus();
+        final FakeEssentiaList before = new FakeEssentiaList();
+        before.add(new FakeEssentiaStack(1, 50));
+        bus.onNeighborChanged("containerA", before);
+        bus.onNeighborChanged("containerA", before);
+
+        bus.triggerFullUpdate();
+
+        final FakeEssentiaList afterConfigChange = new FakeEssentiaList();
+        afterConfigChange.add(new FakeEssentiaStack(1, 50));
+        final Outcome reestablish = bus.onNeighborChanged("containerA", afterConfigChange);
+        check("the call right after a full update establishes a fresh baseline instead of posting "
+                + "anything, even though the underlying amount did not actually change",
+                reestablish.kind == OutcomeKind.FAIL_OPEN_NO_BASELINE, String.valueOf(reestablish.kind));
+
+        final Outcome next = bus.onNeighborChanged("containerA", afterConfigChange);
+        check("incremental mode resumes cleanly on the following call, reporting no delta for "
+                + "genuinely unchanged content, not a duplicate of what the broad refresh already "
+                + "covered",
+                next.kind == OutcomeKind.NO_DELTA, String.valueOf(next.kind));
+    }
+
+
     static void randomizedSweepNeverDiffsAcrossATopologyChange() {
         final Random rnd = new Random(20260922L);
         int totalCalls = 0;
@@ -299,6 +445,13 @@ public final class ThaumicEnergisticsSnapshotDiffTest {
         newAspectAddedReportsPositiveDelta();
         topologyChangeToADifferentContainerResetsBaseline();
         reconnectingTheSameContainerAfterATripDoesNotLeakTheOldBaseline();
+        simulateInjectRoundTripIsFullySuppressed();
+        simulationContextNestingStaysBalanced();
+        simulationContextLeakIsRecoveredAtTickEnd();
+        simulationContextOverflowStaysBalanced();
+        fullUpdateInvalidatesBaselineWhenContentBecomesHidden();
+        fullUpdateInvalidatesBaselineWhenContentBecomesVisible();
+        noDuplicateDeltaAfterFullUpdateAndBaselineReestablishes();
         randomizedSweepNeverDiffsAcrossATopologyChange();
 
         System.out.println(failures == 0 ? "\nThaumicEnergisticsSnapshotDiffTest: ALL PASS"
