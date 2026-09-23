@@ -10,6 +10,7 @@ import dj2.ae2opt.core.OptimizationCommand;
 import dj2.ae2opt.core.OptimizationConfig;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.fml.common.Mod;
+import net.minecraftforge.fml.common.event.FMLModIdMappingEvent;
 import net.minecraftforge.fml.common.event.FMLPreInitializationEvent;
 import net.minecraftforge.fml.common.event.FMLServerStartedEvent;
 import net.minecraftforge.fml.common.event.FMLServerStartingEvent;
@@ -82,6 +83,12 @@ public final class DJ2AE2Optimizations {
             OreKeyExpander.invalidate();
             DrawerPresenceIndex.bumpEpochForAttributes();
         }
+    }
+
+    @Mod.EventHandler
+    public void onIdMappingChanged(FMLModIdMappingEvent event) {
+        OreKeyExpander.invalidate();
+        DrawerPresenceIndex.bumpEpochForIdRemap();
     }
 
     @SubscribeEvent

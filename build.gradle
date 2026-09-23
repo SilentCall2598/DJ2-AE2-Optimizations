@@ -112,7 +112,7 @@ def toolMainClasses = ['CandidateSlotTest', 'ExtractionPairingTest', 'FanOutCont
                         'Phase2MatcherTest', 'EquivTest', 'InventoryDiffTest', 'CandidateIndexTest',
                         'ItemHandlerExtractionStatsTest', 'ExternalHandlerPresenceIndexTest',
                         'ExternalHandlerAuthorizationScopeTest', 'PrototypeEntryTest', 'NetworkMonitorContextTest',
-                        'ThaumicEnergisticsSnapshotDiffTest', 'InterfaceTransferRoutingTest']
+                        'ThaumicEnergisticsSnapshotDiffTest', 'InterfaceTransferRoutingTest', 'OreKeyRemapTest']
 
 def toolRunTasks = toolMainClasses.collect { className ->
     tasks.register("runTool${className}", JavaExec) {

@@ -31,6 +31,10 @@ public final class DrawerPresenceIndex {
     }
 
 
+    public static void bumpEpochForIdRemap() {
+        EPOCH.incrementAndGet();
+    }
+
     public static void bumpEpochForAttributes() {
         EPOCH.incrementAndGet();
         Diagnostics.presenceEpochBumped(Diagnostics.EPOCH_ATTRIBUTES);
