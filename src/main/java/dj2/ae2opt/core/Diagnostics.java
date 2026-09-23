@@ -196,7 +196,11 @@ public final class Diagnostics {
     public static long interfacePoweredInsertOperations;
     public static long interfaceRoutingHandlersObserved;
     public static long interfaceRouteNegativesCaptured;
+    public static long interfaceExtractionRouteNegativesCaptured;
+    public static long interfaceInsertionRouteNegativesCaptured;
     public static long interfaceHandlersSkippedOnModulate;
+    public static long interfaceExtractionHandlersSkippedOnModulate;
+    public static long interfaceInsertionHandlersSkippedOnModulate;
     public static long interfaceHandlersStillVisitedOnModulate;
     public static long interfaceTransferContextLeaksReset;
 
@@ -763,12 +767,24 @@ public final class Diagnostics {
         interfaceRoutingHandlersObserved++;
     }
 
-    public static void interfaceRouteNegativeCaptured() {
+    public static void interfaceExtractionRouteNegativeCaptured() {
         interfaceRouteNegativesCaptured++;
+        interfaceExtractionRouteNegativesCaptured++;
     }
 
-    public static void interfaceHandlerSkippedOnModulate() {
+    public static void interfaceInsertionRouteNegativeCaptured() {
+        interfaceRouteNegativesCaptured++;
+        interfaceInsertionRouteNegativesCaptured++;
+    }
+
+    public static void interfaceExtractionHandlerSkippedOnModulate() {
         interfaceHandlersSkippedOnModulate++;
+        interfaceExtractionHandlersSkippedOnModulate++;
+    }
+
+    public static void interfaceInsertionHandlerSkippedOnModulate() {
+        interfaceHandlersSkippedOnModulate++;
+        interfaceInsertionHandlersSkippedOnModulate++;
     }
 
     public static void interfaceHandlerStillVisitedOnModulate() {
@@ -1201,10 +1217,14 @@ public final class Diagnostics {
         lines.add("-- interface powered transfer routing --");
         lines.add(String.format("interface ops     : %d powered extraction, %d powered insert",
                 interfacePoweredExtractionOperations, interfacePoweredInsertOperations));
-        lines.add(String.format("routed handlers   : %d observed, %d SIMULATE negatives captured",
-                interfaceRoutingHandlersObserved, interfaceRouteNegativesCaptured));
-        lines.add(String.format("MODULATE outcome  : %d skipped as proven negative, %d still visited",
-                interfaceHandlersSkippedOnModulate, interfaceHandlersStillVisitedOnModulate));
+        lines.add(String.format("routed handlers   : %d observed, %d SIMULATE negatives captured "
+                + "(%d extraction, %d insertion)",
+                interfaceRoutingHandlersObserved, interfaceRouteNegativesCaptured,
+                interfaceExtractionRouteNegativesCaptured, interfaceInsertionRouteNegativesCaptured));
+        lines.add(String.format("MODULATE outcome  : %d skipped as proven negative (%d extraction, "
+                + "%d insertion), %d still visited",
+                interfaceHandlersSkippedOnModulate, interfaceExtractionHandlersSkippedOnModulate,
+                interfaceInsertionHandlersSkippedOnModulate, interfaceHandlersStillVisitedOnModulate));
         if (interfaceTransferContextLeaksReset > 0) {
             lines.add("context leaks     : " + interfaceTransferContextLeaksReset
                     + " leaked transfer-context depth level(s) reset at tick end "

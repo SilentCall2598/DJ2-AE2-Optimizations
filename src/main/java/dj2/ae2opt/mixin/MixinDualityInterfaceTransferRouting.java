@@ -28,7 +28,7 @@ public abstract class MixinDualityInterfaceTransferRouting {
             return Platform.poweredExtraction(energy, cell, request, src);
         }
         Diagnostics.interfacePoweredExtractionObserved();
-        InterfaceTransferContext.enter();
+        InterfaceTransferContext.enterExtraction();
         try {
             return Platform.poweredExtraction(energy, cell, request, src);
         } finally {
@@ -48,7 +48,7 @@ public abstract class MixinDualityInterfaceTransferRouting {
             return Platform.poweredInsert(energy, cell, input, src);
         }
         Diagnostics.interfacePoweredInsertObserved();
-        InterfaceTransferContext.enter();
+        InterfaceTransferContext.enterInsertion();
         try {
             return Platform.poweredInsert(energy, cell, input, src);
         } finally {

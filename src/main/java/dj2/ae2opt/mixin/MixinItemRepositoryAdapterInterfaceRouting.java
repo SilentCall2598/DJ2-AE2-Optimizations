@@ -22,7 +22,8 @@ public abstract class MixinItemRepositoryAdapterInterfaceRouting {
             require = 1)
     private ItemStack dj2ae2opt$maybeSkipExtract(IItemRepository repo, ItemStack definition, int amount,
                                                    boolean simulate) {
-        if (!OptimizationConfig.optimizeInterfaceTransferRouting || !InterfaceTransferContext.isActive()) {
+        if (!OptimizationConfig.optimizeInterfaceTransferRouting
+                || !InterfaceTransferContext.isActive(InterfaceTransferContext.Kind.EXTRACTION)) {
             return repo.extractItem(definition, amount, simulate);
         }
 
@@ -32,14 +33,14 @@ public abstract class MixinItemRepositoryAdapterInterfaceRouting {
         if (simulate) {
             final ItemStack result = repo.extractItem(definition, amount, true);
             if (result.isEmpty()) {
-                InterfaceTransferContext.recordNegativeSimulate(this);
-                Diagnostics.interfaceRouteNegativeCaptured();
+                InterfaceTransferContext.recordNegativeSimulate(InterfaceTransferContext.Kind.EXTRACTION, this);
+                Diagnostics.interfaceExtractionRouteNegativeCaptured();
             }
             return result;
         }
 
-        if (InterfaceTransferContext.wasNegativeSimulate(this)) {
-            Diagnostics.interfaceHandlerSkippedOnModulate();
+        if (InterfaceTransferContext.wasNegativeSimulate(InterfaceTransferContext.Kind.EXTRACTION, this)) {
+            Diagnostics.interfaceExtractionHandlerSkippedOnModulate();
             return ItemStack.EMPTY;
         }
 
@@ -54,7 +55,8 @@ public abstract class MixinItemRepositoryAdapterInterfaceRouting {
                             + "insertItem(Lnet/minecraft/item/ItemStack;Z)Lnet/minecraft/item/ItemStack;"),
             require = 1)
     private ItemStack dj2ae2opt$maybeSkipInsert(IItemRepository repo, ItemStack stack, boolean simulate) {
-        if (!OptimizationConfig.optimizeInterfaceTransferRouting || !InterfaceTransferContext.isActive()) {
+        if (!OptimizationConfig.optimizeInterfaceTransferRouting
+                || !InterfaceTransferContext.isActive(InterfaceTransferContext.Kind.INSERTION)) {
             return repo.insertItem(stack, simulate);
         }
 
@@ -64,14 +66,14 @@ public abstract class MixinItemRepositoryAdapterInterfaceRouting {
         if (simulate) {
             final ItemStack result = repo.insertItem(stack, true);
             if (result == stack) {
-                InterfaceTransferContext.recordNegativeSimulate(this);
-                Diagnostics.interfaceRouteNegativeCaptured();
+                InterfaceTransferContext.recordNegativeSimulate(InterfaceTransferContext.Kind.INSERTION, this);
+                Diagnostics.interfaceInsertionRouteNegativeCaptured();
             }
             return result;
         }
 
-        if (InterfaceTransferContext.wasNegativeSimulate(this)) {
-            Diagnostics.interfaceHandlerSkippedOnModulate();
+        if (InterfaceTransferContext.wasNegativeSimulate(InterfaceTransferContext.Kind.INSERTION, this)) {
+            Diagnostics.interfaceInsertionHandlerSkippedOnModulate();
             return stack;
         }
 
