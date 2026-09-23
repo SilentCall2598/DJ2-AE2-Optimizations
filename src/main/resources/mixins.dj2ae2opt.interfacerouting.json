@@ -1,0 +1,13 @@
+{
+  "required": false,
+  "minVersion": "0.8.5",
+  "package": "dj2.ae2opt.mixin",
+  "compatibilityLevel": "JAVA_8",
+  "refmap": "dj2ae2opt.mixins.refmap.json",
+  "plugin": "dj2.ae2opt.core.OptimizationMixinPlugin",
+  "target": "@env(DEFAULT)",
+  "mixins": [
+    "MixinDualityInterfaceTransferRouting",
+    "MixinItemRepositoryAdapterInterfaceRouting"
+  ]
+}

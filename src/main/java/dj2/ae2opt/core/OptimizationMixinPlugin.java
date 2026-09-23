@@ -83,6 +83,10 @@ public final class OptimizationMixinPlugin implements IMixinConfigPlugin {
             return OptimizationConfig.optimizeThaumicEnergisticsIncrementalUpdate
                     && CompatibilityCheck.isUsable(CompatibilityCheck.checkThaumicEnergistics());
         }
+        if (mixinClassName.endsWith("MixinDualityInterfaceTransferRouting")
+                || mixinClassName.endsWith("MixinItemRepositoryAdapterInterfaceRouting")) {
+            return OptimizationConfig.optimizeInterfaceTransferRouting;
+        }
         return true;
     }
 

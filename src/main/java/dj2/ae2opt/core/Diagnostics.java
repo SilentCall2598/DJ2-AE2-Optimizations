@@ -140,6 +140,8 @@ public final class Diagnostics {
     private static boolean loggedForceUpdate;
     private static boolean loggedTeAttachedSide;
     private static boolean loggedTeSimulationGuard;
+    private static boolean loggedSteadyState;
+    private static boolean loggedInterfaceRouting;
 
     private static long serverTicks;
 
@@ -156,6 +158,15 @@ public final class Diagnostics {
     public static long templateCachesConfirmed;
     public static long fallbackConversions;
     public static long pollFailures;
+
+    public static long steadyStateEligiblePolls;
+    public static long steadyStateServedPolls;
+    public static long steadyStateRecordsExamined;
+    public static long steadyStateCorrections;
+    public static long steadyStatePrototypeAdditions;
+    public static long steadyStatePrototypeRemovals;
+    public static long steadyStateInvariantFailures;
+    public static long steadyStateCountersPruned;
     public static long itemHandlerExtractionsObserved;
     public static long externalHandlerNegativeConsidered;
     public static long externalHandlerNegativeServed;
@@ -180,6 +191,14 @@ public final class Diagnostics {
     public static long teBaselineInvalidatedByFullUpdate;
     public static long teSimulationContextLeaksReset;
     public static long teFailOpenGuardUnavailable;
+
+    public static long interfacePoweredExtractionOperations;
+    public static long interfacePoweredInsertOperations;
+    public static long interfaceRoutingHandlersObserved;
+    public static long interfaceRouteNegativesCaptured;
+    public static long interfaceHandlersSkippedOnModulate;
+    public static long interfaceHandlersStillVisitedOnModulate;
+    public static long interfaceTransferContextLeaksReset;
 
 
     public static long extractionCalls;
@@ -556,6 +575,49 @@ public final class Diagnostics {
         }
     }
 
+    public static void steadyStateEligible() {
+        steadyStateEligiblePolls++;
+    }
+
+    public static void steadyStateServed(int changes) {
+        steadyStateServedPolls++;
+        changesPosted += changes;
+        if (!loggedSteadyState) {
+            loggedSteadyState = true;
+            RUNTIME.info("ACTIVE: first Storage Drawers steady-state poll served without rebuilding "
+                    + "or swapping currentlyCached.");
+        }
+    }
+
+    public static void steadyStateRecordExamined() {
+        steadyStateRecordsExamined++;
+    }
+
+    public static void steadyStateCorrection() {
+        steadyStateCorrections++;
+    }
+
+    public static void steadyStatePrototypeAdded() {
+        steadyStatePrototypeAdditions++;
+    }
+
+    public static void steadyStatePrototypeRemoved() {
+        steadyStatePrototypeRemovals++;
+    }
+
+    public static void steadyStateCountersPruned(int removed) {
+        steadyStateCountersPruned += removed;
+    }
+
+    public static void steadyStateInvariantFailure(Throwable t) {
+        steadyStateInvariantFailures++;
+        if (steadyStateInvariantFailures == 1) {
+            LOG.warn("Storage Drawers steady-state polling hit an invariant failure and is now "
+                    + "permanently disabled for that storage bus; it falls back to the exact proven "
+                    + "findPrecise-diff/negate-merge path from here on. Gameplay is unaffected.", t);
+        }
+    }
+
     public static void pollRebuilt(int changes) {
         pollsRebuilt++;
         changesPosted += changes;
@@ -677,6 +739,42 @@ public final class Diagnostics {
         }
     }
 
+    public static void interfacePoweredExtractionObserved() {
+        interfacePoweredExtractionOperations++;
+        if (!loggedInterfaceRouting) {
+            loggedInterfaceRouting = true;
+            MixinStatus.Feature.INTERFACE_TRANSFER_CONTEXT.markRuntimeHit();
+            RUNTIME.info("ACTIVE: first interface powered extraction/insertion bracketed by an "
+                    + "InterfaceTransferContext.");
+        }
+    }
+
+    public static void interfacePoweredInsertObserved() {
+        interfacePoweredInsertOperations++;
+        if (!loggedInterfaceRouting) {
+            loggedInterfaceRouting = true;
+            MixinStatus.Feature.INTERFACE_TRANSFER_CONTEXT.markRuntimeHit();
+            RUNTIME.info("ACTIVE: first interface powered extraction/insertion bracketed by an "
+                    + "InterfaceTransferContext.");
+        }
+    }
+
+    public static void interfaceRoutingHandlerObserved() {
+        interfaceRoutingHandlersObserved++;
+    }
+
+    public static void interfaceRouteNegativeCaptured() {
+        interfaceRouteNegativesCaptured++;
+    }
+
+    public static void interfaceHandlerSkippedOnModulate() {
+        interfaceHandlersSkippedOnModulate++;
+    }
+
+    public static void interfaceHandlerStillVisitedOnModulate() {
+        interfaceHandlersStillVisitedOnModulate++;
+    }
+
     public static void teSimulationGuardEntered() {
         if (!loggedTeSimulationGuard) {
             loggedTeSimulationGuard = true;
@@ -777,6 +875,12 @@ public final class Diagnostics {
             int leaked = EssentiaSimulationContext.resetAtServerTickEnd();
             if (leaked > 0) {
                 teSimulationContextLeaksReset += leaked;
+            }
+        }
+        if (OptimizationConfig.optimizeInterfaceTransferRouting) {
+            int leaked = InterfaceTransferContext.resetAtServerTickEnd();
+            if (leaked > 0) {
+                interfaceTransferContextLeaksReset += leaked;
             }
         }
     }
@@ -947,6 +1051,19 @@ public final class Diagnostics {
                     + "the rest fell back to the negate/merge cycle pending confirmed identity stability",
                     directDiffPolls, pollsRebuilt, percent(directDiffPolls, pollsRebuilt)));
         }
+        if (OptimizationConfig.optimizeDrawerSteadyStatePolling) {
+            lines.add(String.format("steady state      : %d of %d eligible polls served in place (%s); the rest "
+                    + "fell back to the exact findPrecise-diff/negate-merge path",
+                    steadyStateServedPolls, steadyStateEligiblePolls,
+                    percent(steadyStateServedPolls, steadyStateEligiblePolls)));
+            lines.add(String.format("steady records    : %d examined, %d count-only corrections, "
+                    + "%d prototype additions, %d prototype removals",
+                    steadyStateRecordsExamined, steadyStateCorrections,
+                    steadyStatePrototypeAdditions, steadyStatePrototypeRemovals));
+            lines.add(String.format("steady upkeep     : %d invariant failures (permanently disables that bus), "
+                    + "%d stale counters pruned",
+                    steadyStateInvariantFailures, steadyStateCountersPruned));
+        }
         lines.add(String.format("conversion cache  : %d hits, %d misses (%s hit rate)",
                 templateHits, templateMisses, percent(templateHits, lookups)));
         lines.add(String.format("cache stability   : %d buses confirmed stable, %d disabled for unstable "
@@ -1072,7 +1189,27 @@ public final class Diagnostics {
         if (OptimizationConfig.optimizeThaumicEnergisticsIncrementalUpdate) {
             lines.addAll(thaumicEnergisticsLines());
         }
+        if (OptimizationConfig.optimizeInterfaceTransferRouting) {
+            lines.addAll(interfaceTransferRoutingLines());
+        }
         lines.add("counter store     : " + STORE_ID);
+        return lines;
+    }
+
+    private static List<String> interfaceTransferRoutingLines() {
+        List<String> lines = new ArrayList<String>();
+        lines.add("-- interface powered transfer routing --");
+        lines.add(String.format("interface ops     : %d powered extraction, %d powered insert",
+                interfacePoweredExtractionOperations, interfacePoweredInsertOperations));
+        lines.add(String.format("routed handlers   : %d observed, %d SIMULATE negatives captured",
+                interfaceRoutingHandlersObserved, interfaceRouteNegativesCaptured));
+        lines.add(String.format("MODULATE outcome  : %d skipped as proven negative, %d still visited",
+                interfaceHandlersSkippedOnModulate, interfaceHandlersStillVisitedOnModulate));
+        if (interfaceTransferContextLeaksReset > 0) {
+            lines.add("context leaks     : " + interfaceTransferContextLeaksReset
+                    + " leaked transfer-context depth level(s) reset at tick end "
+                    + "(a target threw without returning normally)");
+        }
         return lines;
     }
 

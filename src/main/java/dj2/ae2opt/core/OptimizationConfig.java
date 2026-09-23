@@ -72,6 +72,12 @@ public final class OptimizationConfig {
     public static boolean optimizeThaumicEnergisticsIncrementalUpdate = false;
 
 
+    public static boolean optimizeDrawerSteadyStatePolling = false;
+
+
+    public static boolean optimizeInterfaceTransferRouting = false;
+
+
     public static int diagnosticsDumpIntervalSeconds = 0;
 
 
@@ -136,6 +142,10 @@ public final class OptimizationConfig {
                 "optimizeExternalItemHandlerNegativeExtraction", optimizeExternalItemHandlerNegativeExtraction);
         optimizeThaumicEnergisticsIncrementalUpdate = bool(properties,
                 "optimizeThaumicEnergisticsIncrementalUpdate", optimizeThaumicEnergisticsIncrementalUpdate);
+        optimizeDrawerSteadyStatePolling = bool(properties,
+                "optimizeDrawerSteadyStatePolling", optimizeDrawerSteadyStatePolling);
+        optimizeInterfaceTransferRouting = bool(properties,
+                "optimizeInterfaceTransferRouting", optimizeInterfaceTransferRouting);
         optimizeDrawerNegativeExtraction = bool(properties, "optimizeDrawerNegativeExtraction", optimizeDrawerNegativeExtraction);
         optimizeDrawerCandidateNarrowing = bool(properties, "optimizeDrawerCandidateNarrowing", optimizeDrawerCandidateNarrowing);
         instrumentCandidateIndexVerification = bool(properties, "instrumentCandidateIndexVerification",
@@ -218,6 +228,24 @@ public final class OptimizationConfig {
             writer.write("# stock broad update.\n");
             writer.write("optimizeThaumicEnergisticsIncrementalUpdate = "
                     + optimizeThaumicEnergisticsIncrementalUpdate + "\n\n");
+            writer.write("# EXPERIMENTAL. Once a Storage Drawers repository's prototype identity is confirmed\n");
+            writer.write("# stable, reconcile currentlyCached in place instead of building a fresh IItemList and\n");
+            writer.write("# swapping it in every poll: one repository pass computes each AE value's true current\n");
+            writer.write("# total, compares it against the live cached quantity (which already reflects any\n");
+            writer.write("# interim MODULATE mutation), and applies only the resulting signed delta. New values\n");
+            writer.write("# are still added and vanished values are still zeroed exactly as before. Falls back\n");
+            writer.write("# to the exact existing findPrecise-diff path whenever identity is not confirmed\n");
+            writer.write("# stable, the steady-state state is not primed yet, or anything looks inconsistent.\n");
+            writer.write("optimizeDrawerSteadyStatePolling = " + optimizeDrawerSteadyStatePolling + "\n\n");
+            writer.write("# EXPERIMENTAL. DualityInterface.usePlan's powered extraction/insertion normally runs\n");
+            writer.write("# a full SIMULATE network traversal and then a full separate MODULATE traversal a few\n");
+            writer.write("# microseconds later. A synchronous per-invocation context lets the exact, audited\n");
+            writer.write("# ItemRepositoryAdapter handler class skip its own expensive underlying repository\n");
+            writer.write("# call on MODULATE when the paired SIMULATE already proved it has none of the\n");
+            writer.write("# requested item; a handler that simulated positive always still runs its real\n");
+            writer.write("# MODULATE call unchanged. Any handler type outside that exact audited class, or any\n");
+            writer.write("# call outside a paired context, runs completely unchanged.\n");
+            writer.write("optimizeInterfaceTransferRouting = " + optimizeInterfaceTransferRouting + "\n\n");
             writer.write("# When a Storage Drawers controller provably cannot serve a request, answer empty\n");
             writer.write("# instead of scanning every drawer slot in the network. Stock runs unchanged for\n");
             writer.write("# anything uncertain: a non-null predicate, a network containing an unaudited drawer\n");

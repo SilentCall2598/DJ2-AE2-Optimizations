@@ -44,7 +44,11 @@ public final class MixinStatus {
         THAUMIC_ENERGISTICS_INTEGRATION("Thaumic Energistics essentia bus incremental update",
                 "MixinPartEssentiaStorageBus"),
         THAUMIC_ENERGISTICS_SIMULATION_GUARD("Thaumic Energistics SIMULATE suppression guard",
-                "MixinEssentiaContainerAdapter");
+                "MixinEssentiaContainerAdapter"),
+        INTERFACE_TRANSFER_CONTEXT("Interface transfer routing context",
+                "MixinDualityInterfaceTransferRouting"),
+        INTERFACE_TRANSFER_ROUTING("Interface transfer routing negative skip",
+                "MixinItemRepositoryAdapterInterfaceRouting");
 
         public final String label;
         public final String mixinSimpleName;
@@ -86,6 +90,8 @@ public final class MixinStatus {
                 case ACTUALLY_ADDITIONS_INTEGRATION:
                 case THAUMIC_ENERGISTICS_INTEGRATION:
                 case THAUMIC_ENERGISTICS_SIMULATION_GUARD:
+                case INTERFACE_TRANSFER_CONTEXT:
+                case INTERFACE_TRANSFER_ROUTING:
                     return false;
                 default:
                     return true;
@@ -257,6 +263,10 @@ public final class MixinStatus {
                 return " (waiting for an attached-side neighbor notification on an essentia storage bus)";
             case THAUMIC_ENERGISTICS_SIMULATION_GUARD:
                 return " (waiting for a SIMULATE essentia injection against a storage bus's connected container)";
+            case INTERFACE_TRANSFER_CONTEXT:
+                return " (waiting for an interface to run a powered extraction or insertion)";
+            case INTERFACE_TRANSFER_ROUTING:
+                return " (waiting for an interface-triggered network request to reach a drawer-backed handler)";
             case ITEM_REPOSITORY_CACHE:
                 return " (waiting for a storage bus to poll a drawer network)";
             default:

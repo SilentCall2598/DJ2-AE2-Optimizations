@@ -19,6 +19,7 @@ public final class OptimizationMixinLoader implements ILateMixinLoader {
     public static final String ENDER_UTILITIES_CONFIG = "mixins.dj2ae2opt.enderutilities.json";
     public static final String ACTUALLY_ADDITIONS_CONFIG = "mixins.dj2ae2opt.actuallyadditions.json";
     public static final String THAUMIC_ENERGISTICS_CONFIG = "mixins.dj2ae2opt.thaumicenergistics.json";
+    public static final String INTERFACE_TRANSFER_ROUTING_CONFIG = "mixins.dj2ae2opt.interfacerouting.json";
 
     @Override
     public List<String> getMixinConfigs() {
@@ -38,6 +39,7 @@ public final class OptimizationMixinLoader implements ILateMixinLoader {
                 && CompatibilityCheck.isUsable(CompatibilityCheck.checkActuallyAdditions());
         final boolean thaumicEnergistics = OptimizationConfig.optimizeThaumicEnergisticsIncrementalUpdate
                 && CompatibilityCheck.isUsable(CompatibilityCheck.checkThaumicEnergistics());
+        final boolean interfaceRouting = OptimizationConfig.optimizeInterfaceTransferRouting;
 
         MixinStatus.markRequested(MixinStatus.Feature.ITEM_REPOSITORY_CACHE, cache);
         MixinStatus.markRequested(MixinStatus.Feature.EXTRACTION_DIAGNOSTICS, extraction);
@@ -62,8 +64,10 @@ public final class OptimizationMixinLoader implements ILateMixinLoader {
         MixinStatus.markRequested(MixinStatus.Feature.ACTUALLY_ADDITIONS_INTEGRATION, actuallyAdditions);
         MixinStatus.markRequested(MixinStatus.Feature.THAUMIC_ENERGISTICS_INTEGRATION, thaumicEnergistics);
         MixinStatus.markRequested(MixinStatus.Feature.THAUMIC_ENERGISTICS_SIMULATION_GUARD, thaumicEnergistics);
+        MixinStatus.markRequested(MixinStatus.Feature.INTERFACE_TRANSFER_CONTEXT, interfaceRouting);
+        MixinStatus.markRequested(MixinStatus.Feature.INTERFACE_TRANSFER_ROUTING, interfaceRouting);
 
-        List<String> configs = new ArrayList<String>(11);
+        List<String> configs = new ArrayList<String>(12);
         configs.add(OPTIMIZATION_CONFIG);
         if (extraction) {
             configs.add(EXTRACTION_CONFIG);
@@ -94,6 +98,9 @@ public final class OptimizationMixinLoader implements ILateMixinLoader {
         }
         if (thaumicEnergistics) {
             configs.add(THAUMIC_ENERGISTICS_CONFIG);
+        }
+        if (interfaceRouting) {
+            configs.add(INTERFACE_TRANSFER_ROUTING_CONFIG);
         }
         return configs;
     }
