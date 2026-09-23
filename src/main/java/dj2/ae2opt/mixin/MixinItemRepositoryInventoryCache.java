@@ -228,9 +228,19 @@ public abstract class MixinItemRepositoryInventoryCache {
 
         final long generation = ++this.dj2ae2opt$steadyGeneration;
 
+        final IdentityHashMap<ItemStack, PrototypeEntry> templates = this.dj2ae2opt$templates;
+        final ItemStack[] protos = templates != null && templates.size() > dj2ae2opt$pruneThreshold(count)
+                ? new ItemStack[count] : null;
+        int index = 0;
+
         for (IItemRepository.ItemRecord rec : records) {
             final ItemStack prototype = rec.itemPrototype;
             final long size = rec.count;
+
+            if (protos != null && index < count) {
+                protos[index] = prototype;
+            }
+            index++;
 
             if (prototype == null || prototype.isEmpty()) {
                 throw new IllegalStateException("malformed prototype in steady-state poll");
@@ -308,6 +318,10 @@ public abstract class MixinItemRepositoryInventoryCache {
             if (removed > 0) {
                 Diagnostics.steadyStateCountersPruned(removed);
             }
+        }
+
+        if (protos != null && index == count) {
+            this.dj2ae2opt$pruneTemplates(protos, count);
         }
 
         return changes;

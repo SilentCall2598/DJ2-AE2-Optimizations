@@ -345,10 +345,14 @@ public final class EquivTest {
 
         List<AeStack> steadyUpdate(List<Object[]> records, int count) {
             long generation = ++generationCounter;
+            Stack[] protos = templates != null && templates.size() > count * 2 + 16 ? new Stack[count] : null;
+            int index = 0;
 
             for (Object[] rec : records) {
                 Stack prototype = (Stack) rec[0];
                 long size = (Integer) rec[1];
+                if (protos != null && index < count) protos[index] = prototype;
+                index++;
                 if (prototype == null || prototype.item == null) {
                     throw new IllegalStateException("malformed prototype");
                 }
@@ -415,6 +419,8 @@ public final class EquivTest {
                     if (pruneIt.next().getValue().generation != generation) pruneIt.remove();
                 }
             }
+
+            if (protos != null && index == count) prune(protos, count);
 
             return changes;
         }
@@ -1321,6 +1327,46 @@ public final class EquivTest {
                 "n/a");
     }
 
+    static void steadyTemplateCacheStaysBoundedUnderPrototypeIdentityChurn() {
+        String name = "steady: conversion templates stay bounded while prototype identities churn";
+        Repository repoA = new Repository(false), repoB = new Repository(false);
+        String[] items = {"iron_ingot", "gold_ingot", "redstone", "diamond", "coal", "emerald", "quartz", "clay"};
+        for (int i = 0; i < items.length; i++) {
+            Drawer a = new Drawer(2048, false, false);
+            a.prototype = new Stack(items[i], 0, null); a.count = 10 + i;
+            Drawer b = new Drawer(2048, false, false);
+            b.prototype = new Stack(items[i], 0, null); b.count = 10 + i;
+            repoA.drawers.add(a); repoB.drawers.add(b);
+        }
+        StockCache stock = new StockCache(repoA);
+        SteadyCache steady = steadyCacheConfirmedFromStart(repoB);
+        int count = items.length;
+        int bound = count * 2 + 16;
+        int maxTemplates = 0;
+        for (int poll = 0; poll < 400; poll++) {
+            Drawer churned = repoB.drawers.get(poll % count);
+            churned.prototype = new Stack(churned.prototype.item, 0, null);
+            List<AeStack> s = stock.update();
+            List<AeStack> f = steady.update();
+            if (!normalize(s).equals(normalize(f))) {
+                System.out.println("FAIL  " + name + ": poll " + poll + " changes differ: "
+                        + normalize(s) + " vs " + normalize(f));
+                failures++;
+                return;
+            }
+            if (steady.templates != null && steady.templates.size() > maxTemplates) {
+                maxTemplates = steady.templates.size();
+            }
+        }
+        check(name + " (every poll served in place)", steady.steadyServedPolls == 400,
+                "served=" + steady.steadyServedPolls);
+        check(name + " (never more than one poll of new prototypes above the prune threshold)",
+                maxTemplates <= bound + count, "max templates=" + maxTemplates + " bound=" + (bound + count));
+        check(name + " (steady-state polling actually pruned)", steady.prunes > 0, "prunes=" + steady.prunes);
+        check(name + " (visible contents match stock)",
+                stock.cached().visible().equals(steady.cached().visible()), "n/a");
+    }
+
     public static void main(String[] args) {
         overflowRegression();
         disabledFallbackRegression();
@@ -1345,6 +1391,7 @@ public final class EquivTest {
         steadyMultipleRetainedZeroPrototypesSharingOneValueProduceNoChange();
         steadyRetainedZeroPlusPositiveDuplicateProducesExactlyThePositiveAggregate();
         steadyRetainedZeroMatchesStockOracleChangeListExactly();
+        steadyTemplateCacheStaysBoundedUnderPrototypeIdentityChurn();
 
         for (long seed = 1; seed <= 20; seed++) {
             run("stable   seed" + seed, seed, false, 4000);
