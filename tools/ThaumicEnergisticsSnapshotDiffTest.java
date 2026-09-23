@@ -74,7 +74,8 @@ public final class ThaumicEnergisticsSnapshotDiffTest {
 
 
     enum OutcomeKind {
-        TOPOLOGY_CHANGED, FAIL_OPEN_NO_BASELINE, DELTA_POSTED, NO_DELTA, SIMULATION_SUPPRESSED
+        TOPOLOGY_CHANGED, FAIL_OPEN_NO_BASELINE, DELTA_POSTED, NO_DELTA, SIMULATION_SUPPRESSED,
+        FAIL_OPEN_GUARD_UNAVAILABLE
     }
 
     static final class Outcome {
@@ -92,6 +93,7 @@ public final class ThaumicEnergisticsSnapshotDiffTest {
         Object lastConnectedContainer;
         FakeEssentiaList lastSnapshot;
         boolean simulationActive;
+        boolean guardApplied = true;
 
         void triggerFullUpdate() {
             this.lastSnapshot = null;
@@ -106,6 +108,10 @@ public final class ThaumicEnergisticsSnapshotDiffTest {
                 this.lastConnectedContainer = currentContainer;
                 this.lastSnapshot = null;
                 return new Outcome(OutcomeKind.TOPOLOGY_CHANGED, null);
+            }
+
+            if (!this.guardApplied) {
+                return new Outcome(OutcomeKind.FAIL_OPEN_GUARD_UNAVAILABLE, null);
             }
 
             final FakeEssentiaList previousSnapshot = this.lastSnapshot;
@@ -397,6 +403,83 @@ public final class ThaumicEnergisticsSnapshotDiffTest {
     }
 
 
+    static void guardUnavailableFallsOpenWithoutCapturingBaseline() {
+        final FakeBus bus = new FakeBus();
+        bus.guardApplied = false;
+        final FakeEssentiaList content = new FakeEssentiaList();
+        content.add(new FakeEssentiaStack(1, 50));
+
+        final Outcome first = bus.onNeighborChanged("containerA", content);
+        check("the first notification against a freshly attached container is still a topology "
+                + "change regardless of guard availability",
+                first.kind == OutcomeKind.TOPOLOGY_CHANGED, String.valueOf(first.kind));
+
+        final Outcome second = bus.onNeighborChanged("containerA", content);
+        check("the next same-container notification while the guard is unavailable falls open "
+                + "instead of capturing a baseline",
+                second.kind == OutcomeKind.FAIL_OPEN_GUARD_UNAVAILABLE, String.valueOf(second.kind));
+        check("no baseline was captured while the guard was unavailable",
+                bus.lastSnapshot == null, "n/a");
+
+        final Outcome third = bus.onNeighborChanged("containerA", content);
+        check("the guard remaining unavailable keeps falling open on every subsequent "
+                + "same-container call, not just the first one after it was noticed",
+                third.kind == OutcomeKind.FAIL_OPEN_GUARD_UNAVAILABLE, String.valueOf(third.kind));
+    }
+
+    static void guardBecomingUnavailableDoesNotMutateAnExistingBaseline() {
+        final FakeBus bus = new FakeBus();
+        final FakeEssentiaList established = new FakeEssentiaList();
+        established.add(new FakeEssentiaStack(1, 50));
+        bus.onNeighborChanged("containerA", established);
+        bus.onNeighborChanged("containerA", established);
+
+        bus.guardApplied = false;
+
+        final FakeEssentiaList changed = new FakeEssentiaList();
+        changed.add(new FakeEssentiaStack(1, 80));
+        final Outcome outcome = bus.onNeighborChanged("containerA", changed);
+        check("a same-container notification after the guard becomes unavailable falls open "
+                + "instead of diffing or advancing the existing baseline",
+                outcome.kind == OutcomeKind.FAIL_OPEN_GUARD_UNAVAILABLE, String.valueOf(outcome.kind));
+        check("the existing baseline is left exactly as it was (50), neither advanced to the new "
+                + "content nor otherwise mutated",
+                bus.lastSnapshot.findPrecise(new FakeEssentiaStack(1, 0)).amount == 50L, "n/a");
+    }
+
+    static void guardBecomingAvailableLaterResumesIncrementalModeCleanly() {
+        final FakeBus bus = new FakeBus();
+        bus.guardApplied = false;
+
+        final FakeEssentiaList content1 = new FakeEssentiaList();
+        content1.add(new FakeEssentiaStack(1, 30));
+        bus.onNeighborChanged("containerA", content1);
+        final Outcome whileUnavailable = bus.onNeighborChanged("containerA", content1);
+        check("while the guard is unavailable, notifications fall open and capture no baseline",
+                whileUnavailable.kind == OutcomeKind.FAIL_OPEN_GUARD_UNAVAILABLE
+                        && bus.lastSnapshot == null, String.valueOf(whileUnavailable.kind));
+
+        bus.guardApplied = true;
+
+        final FakeEssentiaList content2 = new FakeEssentiaList();
+        content2.add(new FakeEssentiaStack(1, 30));
+        final Outcome firstAfterAvailable = bus.onNeighborChanged("containerA", content2);
+        check("the first notification after the guard becomes available establishes a fresh "
+                + "baseline instead of guessing a delta",
+                firstAfterAvailable.kind == OutcomeKind.FAIL_OPEN_NO_BASELINE,
+                String.valueOf(firstAfterAvailable.kind));
+
+        final FakeEssentiaList content3 = new FakeEssentiaList();
+        content3.add(new FakeEssentiaStack(1, 45));
+        final Outcome realChange = bus.onNeighborChanged("containerA", content3);
+        check("the next real content change after the baseline is established reports its exact "
+                + "signed delta",
+                realChange.kind == OutcomeKind.DELTA_POSTED, String.valueOf(realChange.kind));
+        check("the delta is exactly +15 (30 -> 45)",
+                byAspect(realChange.deltas).get(1) == 15L, realChange.deltas.toString());
+    }
+
+
     static void randomizedSweepNeverDiffsAcrossATopologyChange() {
         final Random rnd = new Random(20260922L);
         int totalCalls = 0;
@@ -452,6 +535,9 @@ public final class ThaumicEnergisticsSnapshotDiffTest {
         fullUpdateInvalidatesBaselineWhenContentBecomesHidden();
         fullUpdateInvalidatesBaselineWhenContentBecomesVisible();
         noDuplicateDeltaAfterFullUpdateAndBaselineReestablishes();
+        guardUnavailableFallsOpenWithoutCapturingBaseline();
+        guardBecomingUnavailableDoesNotMutateAnExistingBaseline();
+        guardBecomingAvailableLaterResumesIncrementalModeCleanly();
         randomizedSweepNeverDiffsAcrossATopologyChange();
 
         System.out.println(failures == 0 ? "\nThaumicEnergisticsSnapshotDiffTest: ALL PASS"

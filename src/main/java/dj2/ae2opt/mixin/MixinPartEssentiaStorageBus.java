@@ -76,6 +76,11 @@ public abstract class MixinPartEssentiaStorageBus extends PartSharedEssentiaBus 
                 return grid.postEvent(event);
             }
 
+            if (!MixinStatus.Feature.THAUMIC_ENERGISTICS_SIMULATION_GUARD.isApplied()) {
+                Diagnostics.teFailOpenGuardUnavailable();
+                return grid.postEvent(event);
+            }
+
             final IEssentiaStorageChannel channel = this.getChannel();
             if (channel == null) {
                 Diagnostics.teFailOpenMissingAccess("essentia storage channel unavailable");

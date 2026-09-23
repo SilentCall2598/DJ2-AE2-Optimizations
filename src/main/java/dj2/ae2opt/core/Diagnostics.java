@@ -179,6 +179,7 @@ public final class Diagnostics {
     public static long teSimulationSuppressed;
     public static long teBaselineInvalidatedByFullUpdate;
     public static long teSimulationContextLeaksReset;
+    public static long teFailOpenGuardUnavailable;
 
 
     public static long extractionCalls;
@@ -665,6 +666,17 @@ public final class Diagnostics {
         }
     }
 
+    public static void teFailOpenGuardUnavailable() {
+        teFailOpenEvents++;
+        teFailOpenGuardUnavailable++;
+        teBroadEventsAllowed++;
+        if (teFailOpenGuardUnavailable == 1) {
+            LOG.warn("Thaumic Energistics incremental update fell open to the stock broad update: the "
+                    + "SIMULATE suppression guard (MixinEssentiaContainerAdapter) has not applied yet. "
+                    + "Gameplay is unaffected; that call ran the exact stock path.");
+        }
+    }
+
     public static void teSimulationGuardEntered() {
         if (!loggedTeSimulationGuard) {
             loggedTeSimulationGuard = true;
@@ -1077,8 +1089,13 @@ public final class Diagnostics {
         lines.add(String.format("broad update      : %d suppressed, %d allowed (topology changes + fail-open)",
                 teBroadEventsSuppressed, teBroadEventsAllowed));
         lines.add(String.format("fail-open         : %d total (%d no baseline yet, %d missing access, "
-                + "%d exception)",
-                teFailOpenEvents, teFailOpenNoBaseline, teFailOpenMissingAccess, teFailOpenExceptions));
+                + "%d guard unavailable, %d exception)",
+                teFailOpenEvents, teFailOpenNoBaseline, teFailOpenMissingAccess,
+                teFailOpenGuardUnavailable, teFailOpenExceptions));
+        if (teFailOpenGuardUnavailable > 0) {
+            lines.add("guard status      : SIMULATE suppression guard is unavailable; running stock "
+                    + "broad updates only until MixinEssentiaContainerAdapter applies");
+        }
         lines.add(String.format("simulation guard  : %d SIMULATE-triggered notifications fully suppressed "
                 + "(no delta, no broad update)", teSimulationSuppressed));
         if (teSimulationContextLeaksReset > 0) {
