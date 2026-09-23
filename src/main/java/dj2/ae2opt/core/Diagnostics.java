@@ -165,6 +165,7 @@ public final class Diagnostics {
     public static long steadyStateCorrections;
     public static long steadyStatePrototypeAdditions;
     public static long steadyStatePrototypeRemovals;
+    public static long steadyStateZeroTotalsIgnored;
     public static long steadyStateInvariantFailures;
     public static long steadyStateCountersPruned;
     public static long itemHandlerExtractionsObserved;
@@ -607,6 +608,10 @@ public final class Diagnostics {
 
     public static void steadyStatePrototypeRemoved() {
         steadyStatePrototypeRemovals++;
+    }
+
+    public static void steadyStateZeroTotalIgnored() {
+        steadyStateZeroTotalsIgnored++;
     }
 
     public static void steadyStateCountersPruned(int removed) {
@@ -1073,9 +1078,9 @@ public final class Diagnostics {
                     steadyStateServedPolls, steadyStateEligiblePolls,
                     percent(steadyStateServedPolls, steadyStateEligiblePolls)));
             lines.add(String.format("steady records    : %d examined, %d count-only corrections, "
-                    + "%d prototype additions, %d prototype removals",
+                    + "%d prototype additions, %d prototype removals, %d zero-total additions ignored",
                     steadyStateRecordsExamined, steadyStateCorrections,
-                    steadyStatePrototypeAdditions, steadyStatePrototypeRemovals));
+                    steadyStatePrototypeAdditions, steadyStatePrototypeRemovals, steadyStateZeroTotalsIgnored));
             lines.add(String.format("steady upkeep     : %d invariant failures (permanently disables that bus), "
                     + "%d stale counters pruned",
                     steadyStateInvariantFailures, steadyStateCountersPruned));

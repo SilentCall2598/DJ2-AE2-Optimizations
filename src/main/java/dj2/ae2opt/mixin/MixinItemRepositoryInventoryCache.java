@@ -273,11 +273,15 @@ public abstract class MixinItemRepositoryInventoryCache {
                     changes.add(existing.copy().setStackSize(delta));
                     Diagnostics.steadyStateCorrection();
                 }
-            } else {
+            } else if (counter.value > 0L) {
                 final IAEItemStack fresh = counter.representative.copy().setStackSize(counter.value);
                 cached.add(fresh);
                 changes.add(fresh.copy());
                 Diagnostics.steadyStatePrototypeAdded();
+            } else if (counter.value == 0L) {
+                Diagnostics.steadyStateZeroTotalIgnored();
+            } else {
+                throw new IllegalStateException("negative steady-state total for a value with no prior cache entry");
             }
         }
 

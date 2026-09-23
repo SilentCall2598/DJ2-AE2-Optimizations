@@ -79,12 +79,13 @@ public final class EquivTest {
 
     static final class Drawer {
         Stack prototype; int count; final int capacity; final boolean voiding; final boolean vending;
+        boolean locked;
         Drawer(int capacity, boolean voiding, boolean vending) {
             this.capacity = capacity; this.voiding = voiding; this.vending = vending;
         }
 
         int advertisedCount() { return vending ? Integer.MAX_VALUE : count; }
-        boolean isEmpty() { return prototype == null || (!vending && count <= 0); }
+        boolean isEmpty() { return prototype == null || (!locked && !vending && count <= 0); }
     }
 
     static final class Repository {
@@ -280,7 +281,8 @@ public final class EquivTest {
         static final int WARMUP = 0, JUDGING = 1, CONFIRMED = 2, GIVEN_UP = 3;
         int stability = WARMUP;
         int steadyEligiblePolls, steadyServedPolls, steadyRecordsExamined, steadyCorrections,
-                steadyAdditions, steadyRemovals, steadyInvariantFailures, steadyForcedFallbacks;
+                steadyAdditions, steadyRemovals, steadyInvariantFailures, steadyForcedFallbacks,
+                steadyZeroTotalsIgnored;
 
         SteadyCache(Repository repo) { this.repo = repo; }
         public ItemList cached() { return currentlyCached; }
@@ -383,12 +385,16 @@ public final class EquivTest {
                         changes.add(d);
                         steadyCorrections++;
                     }
-                } else {
+                } else if (counter.value > 0) {
                     AeStack fresh = counter.representative.copy();
                     fresh.size = counter.value;
                     currentlyCached.add(fresh);
                     changes.add(fresh.copy());
                     steadyAdditions++;
+                } else if (counter.value == 0) {
+                    steadyZeroTotalsIgnored++;
+                } else {
+                    throw new IllegalStateException("negative steady-state total for a value with no prior cache entry");
                 }
             }
 
@@ -486,6 +492,7 @@ public final class EquivTest {
         Repository repo = new Repository(unstable);
         for (int i = 0; i < drawers; i++) {
             Drawer d = new Drawer(2048, i % 7 == 0, i % 11 == 5);
+            d.locked = i % 13 == 0;
             if (r.nextInt(4) != 0) { d.prototype = randomPrototype(r); d.count = r.nextInt(400); }
             repo.drawers.add(d);
         }
@@ -500,6 +507,15 @@ public final class EquivTest {
     }
 
     static int failures = 0;
+
+    static void check(String name, boolean ok, String detail) {
+        if (ok) {
+            System.out.println("pass  " + name);
+        } else {
+            System.out.println("FAIL  " + name + ": " + detail);
+            failures++;
+        }
+    }
 
     static void run(String name, long seed, boolean unstable, int steps) {
         Random rs = new Random(seed), rf = new Random(seed);
@@ -1113,6 +1129,198 @@ public final class EquivTest {
                 + steady.counters.size() + ")");
     }
 
+
+    static SteadyCache steadyCacheConfirmedFromStart(Repository repo) {
+        SteadyCache cache = new SteadyCache(repo);
+        cache.stability = SteadyCache.CONFIRMED;
+        return cache;
+    }
+
+    static void steadyRetainedZeroPrototypeProducesNoChange() {
+        String name = "steady: retained-locked prototype at zero produces no change entries";
+        Repository repo = new Repository(false);
+        Drawer d = new Drawer(2048, false, false);
+        d.prototype = new Stack("iron_ingot", 0, null);
+        d.count = 0;
+        d.locked = true;
+        repo.drawers.add(d);
+
+        SteadyCache cache = steadyCacheConfirmedFromStart(repo);
+        List<AeStack> changes = cache.update();
+
+        check(name + ": zero change entries", changes.isEmpty(), normalize(changes).toString());
+        check(name + ": no prototype addition recorded", cache.steadyAdditions == 0, "additions=" + cache.steadyAdditions);
+        check(name + ": zero-total-ignored counter incremented", cache.steadyZeroTotalsIgnored == 1,
+                "ignored=" + cache.steadyZeroTotalsIgnored);
+        check(name + ": nothing visible for that key", !cache.cached().visible().containsKey(d.prototype.key()), "n/a");
+    }
+
+    static void steadyRepeatedRetainedZeroPollsProduceNoChangeOrChurn() {
+        String name = "steady: repeated retained-zero polls produce no changes and no add/prune churn";
+        Repository repo = new Repository(false);
+        Drawer d = new Drawer(2048, false, false);
+        d.prototype = new Stack("gold_ingot", 0, null);
+        d.count = 0;
+        d.locked = true;
+        repo.drawers.add(d);
+
+        SteadyCache cache = steadyCacheConfirmedFromStart(repo);
+        for (int i = 0; i < 50; i++) {
+            List<AeStack> changes = cache.update();
+            if (!changes.isEmpty()) {
+                System.out.println("FAIL " + name + ": unexpected change at poll " + i + ": " + normalize(changes));
+                failures++;
+                return;
+            }
+        }
+        check(name + ": zero-total-ignored fired every poll", cache.steadyZeroTotalsIgnored == 50,
+                "ignored=" + cache.steadyZeroTotalsIgnored);
+        check(name + ": no prototype additions or removals ever recorded",
+                cache.steadyAdditions == 0 && cache.steadyRemovals == 0,
+                "additions=" + cache.steadyAdditions + " removals=" + cache.steadyRemovals);
+        System.out.println("pass  " + name);
+    }
+
+    static void steadyPositiveThenRetainedZeroThenRetainedZeroThenPositiveAgain() {
+        String name = "steady: 5 -> retained zero -> retained zero -> 5 emits -5 once, nothing, then +5 once";
+        Repository repo = new Repository(false);
+        Drawer d = new Drawer(2048, false, false);
+        d.prototype = new Stack("redstone", 0, null);
+        d.count = 5;
+        repo.drawers.add(d);
+
+        SteadyCache cache = steadyCacheConfirmedFromStart(repo);
+        List<AeStack> first = cache.update();
+        Map<Key, Long> firstByKey = new java.util.HashMap<Key, Long>();
+        for (AeStack s : first) firstByKey.put(s.key, s.size);
+        check(name + " (step 1, established at 5)", first.size() == 1 && firstByKey.get(d.prototype.key()) == 5L,
+                normalize(first).toString());
+
+        d.count = 0;
+        d.locked = true;
+        List<AeStack> second = cache.update();
+        Map<Key, Long> secondByKey = new java.util.HashMap<Key, Long>();
+        for (AeStack s : second) secondByKey.put(s.key, s.size);
+        check(name + " (step 2, drops to retained zero, emits exactly -5)",
+                second.size() == 1 && secondByKey.get(d.prototype.key()) == -5L, normalize(second).toString());
+        check(name + " (cached record is now zero, nothing visible)",
+                !cache.cached().visible().containsKey(d.prototype.key()), "n/a");
+
+        List<AeStack> third = cache.update();
+        check(name + " (step 3, still retained zero, emits nothing)", third.isEmpty(), normalize(third).toString());
+
+        d.count = 5;
+        d.locked = false;
+        List<AeStack> fourth = cache.update();
+        Map<Key, Long> fourthByKey = new java.util.HashMap<Key, Long>();
+        for (AeStack s : fourth) fourthByKey.put(s.key, s.size);
+        check(name + " (step 4, refilled, emits exactly +5)",
+                fourth.size() == 1 && fourthByKey.get(d.prototype.key()) == 5L, normalize(fourth).toString());
+    }
+
+    static void steadyExistingZeroRecordPlusFreshZeroProducesNoChange() {
+        String name = "steady: an existing zero cache record plus a fresh zero total stays a no-op";
+        Repository repo = new Repository(false);
+        Drawer d = new Drawer(2048, false, false);
+        d.prototype = new Stack("enchanted_book", 0, null);
+        d.count = 5;
+        repo.drawers.add(d);
+
+        SteadyCache cache = steadyCacheConfirmedFromStart(repo);
+        cache.update();
+        d.count = 0;
+        d.locked = true;
+        cache.update();
+
+        long correctionsBefore = cache.steadyCorrections;
+        List<AeStack> changes = cache.update();
+        check(name, changes.isEmpty() && cache.steadyCorrections == correctionsBefore, normalize(changes).toString());
+        check(name + " (cleanup semantics: nothing visible)",
+                !cache.cached().visible().containsKey(d.prototype.key()), "n/a");
+    }
+
+    static void steadyMultipleRetainedZeroPrototypesSharingOneValueProduceNoChange() {
+        String name = "steady: multiple retained-zero prototypes sharing one AE value produce no change";
+        Repository repo = new Repository(false);
+        Drawer d1 = new Drawer(2048, false, false);
+        d1.prototype = new Stack("cobblestone", 0, null);
+        d1.count = 0;
+        d1.locked = true;
+        Drawer d2 = new Drawer(2048, false, false);
+        d2.prototype = new Stack("cobblestone", 0, null);
+        d2.count = 0;
+        d2.locked = true;
+        repo.drawers.add(d1);
+        repo.drawers.add(d2);
+
+        SteadyCache cache = steadyCacheConfirmedFromStart(repo);
+        List<AeStack> changes = cache.update();
+
+        check(name, changes.isEmpty(), normalize(changes).toString());
+        check(name + " (two records examined, still ignored as one zero total)",
+                cache.steadyRecordsExamined == 2 && cache.steadyZeroTotalsIgnored == 1,
+                "examined=" + cache.steadyRecordsExamined + " ignored=" + cache.steadyZeroTotalsIgnored);
+    }
+
+    static void steadyRetainedZeroPlusPositiveDuplicateProducesExactlyThePositiveAggregate() {
+        String name = "steady: a retained-zero prototype plus a positive duplicate emits exactly the positive aggregate";
+        Repository repo = new Repository(false);
+        Drawer zero = new Drawer(2048, false, false);
+        zero.prototype = new Stack("diamond", 0, null);
+        zero.count = 0;
+        zero.locked = true;
+        Drawer positive = new Drawer(2048, false, false);
+        positive.prototype = new Stack("diamond", 0, null);
+        positive.count = 7;
+        repo.drawers.add(zero);
+        repo.drawers.add(positive);
+
+        SteadyCache cache = steadyCacheConfirmedFromStart(repo);
+        List<AeStack> changes = cache.update();
+        Map<Key, Long> byKey = new java.util.HashMap<Key, Long>();
+        for (AeStack s : changes) byKey.put(s.key, s.size);
+
+        check(name, changes.size() == 1 && byKey.get(zero.prototype.key()) == 7L, normalize(changes).toString());
+        check(name + " (exactly one addition recorded, not two)", cache.steadyAdditions == 1,
+                "additions=" + cache.steadyAdditions);
+    }
+
+    static void steadyRetainedZeroMatchesStockOracleChangeListExactly() {
+        String name = "steady: retained-zero scenario matches the stock oracle's exact change list, not just final contents";
+        Repository repoA = new Repository(false), repoB = new Repository(false);
+
+        Drawer da1 = new Drawer(2048, false, false);
+        da1.prototype = new Stack("iron_ingot", 0, null); da1.count = 10;
+        Drawer da2 = new Drawer(2048, false, false);
+        da2.prototype = new Stack("gold_ingot", 0, null); da2.count = 0; da2.locked = true;
+        repoA.drawers.add(da1); repoA.drawers.add(da2);
+
+        Drawer db1 = new Drawer(2048, false, false);
+        db1.prototype = new Stack("iron_ingot", 0, null); db1.count = 10;
+        Drawer db2 = new Drawer(2048, false, false);
+        db2.prototype = new Stack("gold_ingot", 0, null); db2.count = 0; db2.locked = true;
+        repoB.drawers.add(db1); repoB.drawers.add(db2);
+
+        StockCache stock = new StockCache(repoA);
+        SteadyCache steady = steadyCacheConfirmedFromStart(repoB);
+
+        List<AeStack> stockChanges = stock.update();
+        List<AeStack> steadyChanges = steady.update();
+        check(name + " (first poll, bootstrap)", normalize(stockChanges).equals(normalize(steadyChanges)),
+                normalize(stockChanges) + " vs " + normalize(steadyChanges));
+        check(name + " (visible contents also match)", stock.cached().visible().equals(steady.cached().visible()),
+                "n/a");
+
+        da1.count = 8; db1.count = 8;
+        List<AeStack> stockChanges2 = stock.update();
+        List<AeStack> steadyChanges2 = steady.update();
+        check(name + " (second poll, one real change, retained-zero stays silent)",
+                normalize(stockChanges2).equals(normalize(steadyChanges2)),
+                normalize(stockChanges2) + " vs " + normalize(steadyChanges2));
+        check(name + " (visible contents still match)", stock.cached().visible().equals(steady.cached().visible()),
+                "n/a");
+    }
+
     public static void main(String[] args) {
         overflowRegression();
         disabledFallbackRegression();
@@ -1130,6 +1338,13 @@ public final class EquivTest {
         steadyVendingRegression(5, 64);
         steadyVendingRegression(100, 999);
         steadyLongIdleRegression();
+        steadyRetainedZeroPrototypeProducesNoChange();
+        steadyRepeatedRetainedZeroPollsProduceNoChangeOrChurn();
+        steadyPositiveThenRetainedZeroThenRetainedZeroThenPositiveAgain();
+        steadyExistingZeroRecordPlusFreshZeroProducesNoChange();
+        steadyMultipleRetainedZeroPrototypesSharingOneValueProduceNoChange();
+        steadyRetainedZeroPlusPositiveDuplicateProducesExactlyThePositiveAggregate();
+        steadyRetainedZeroMatchesStockOracleChangeListExactly();
 
         for (long seed = 1; seed <= 20; seed++) {
             run("stable   seed" + seed, seed, false, 4000);

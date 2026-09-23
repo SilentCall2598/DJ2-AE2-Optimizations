@@ -72,6 +72,8 @@ public final class CompatibilityCheck {
 
         OptimizationConfig.optimizeDrawerInventoryPolling = false;
         OptimizationConfig.optimizeDrawerNegativeExtraction = false;
+        OptimizationConfig.optimizeDrawerSteadyStatePolling = false;
+        OptimizationConfig.optimizeInterfaceTransferRouting = false;
         Diagnostics.LOG.warn("Drawer optimization disabled: this build is validated against {} {} and {} {}, "
                 + "and those are not what is installed. AE2 keeps its own behavior. If the installed "
                 + "versions are correct, put the strings logged above into expectedAe2Version and "
