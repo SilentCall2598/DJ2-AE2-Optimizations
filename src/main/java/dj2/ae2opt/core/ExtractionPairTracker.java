@@ -99,8 +99,4 @@ public final class ExtractionPairTracker {
     public static int amountRelation(int pair) {
         return pair & ~MOD_POWERED_CONTEXT;
     }
-
-    public boolean hasPending() {
-        return this.pending;
-    }
 }

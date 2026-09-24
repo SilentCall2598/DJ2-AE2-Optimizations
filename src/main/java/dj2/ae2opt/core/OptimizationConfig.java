@@ -191,7 +191,7 @@ public final class OptimizationConfig {
             writer.write("# the live set; this only guards against an absurd repository, and exceeding it turns\n");
             writer.write("# the cache off for that bus with a logged reason instead of thrashing it.\n");
             writer.write("maxLivePrototypesPerBus = " + maxLivePrototypesPerBus + "\n\n");
-            writer.write("# PHASE 2 DIAGNOSTIC ONLY. Count ItemRepositoryAdapter extraction calls and\n");
+            writer.write("# Diagnostic only. Count ItemRepositoryAdapter extraction calls and\n");
             writer.write("# SIMULATE/MODULATE pairing without changing any transaction behavior. Leave off\n");
             writer.write("# for normal play; enable for a measured 5-10 minute capture.\n");
             writer.write("instrumentExtractionTransactions = " + instrumentExtractionTransactions + "\n\n");
@@ -199,6 +199,9 @@ public final class OptimizationConfig {
             writer.write("# a candidate index could have narrowed the stock scan to. Measurement only, one\n");
             writer.write("# request in 512, and nothing it computes is returned to Storage Drawers.\n");
             writer.write("instrumentNegativeCandidateSlots = " + instrumentNegativeCandidateSlots + "\n\n");
+            writer.write("# Sample key-present negative-extraction fallbacks and count the Storage Drawers\n");
+            writer.write("# phase-2 matcher calls they actually make. Diagnostic only; requires\n");
+            writer.write("# optimizeDrawerNegativeExtraction.\n");
             writer.write("instrumentNegativePhase2Matchers = " + instrumentNegativePhase2Matchers + "\n\n");
             writer.write("# Diagnostic counters on NetworkMonitor.forceUpdate and GridStorageCache.cellUpdate.\n");
             writer.write("# Off by default: it is measurement, not an optimization.\n");
@@ -213,14 +216,14 @@ public final class OptimizationConfig {
             writer.write("# optimization is attempted. Diagnostic only; nothing it computes changes extraction.\n");
             writer.write("instrumentItemHandlerExtraction = " + instrumentItemHandlerExtraction + "\n");
             writer.write("maxItemHandlerClassesTracked = " + maxItemHandlerClassesTracked + "\n\n");
-            writer.write("# EXPERIMENTAL. Proven-absent short-circuit for ItemHandlerAdapter.extractItems, for\n");
+            writer.write("# Off by default. Proven-absent short-circuit for ItemHandlerAdapter.extractItems, for\n");
             writer.write("# the specific IItemHandler integrations audited and version-gated below (Ender\n");
             writer.write("# Utilities JSU, Actually Additions Large Storage Crate). Any other handler runs\n");
             writer.write("# unchanged. Falls back to the exact stock scan whenever the index cannot prove\n");
             writer.write("# absence, is not built, or the owning mod is absent or a different version.\n");
             writer.write("optimizeExternalItemHandlerNegativeExtraction = "
                     + optimizeExternalItemHandlerNegativeExtraction + "\n\n");
-            writer.write("# EXPERIMENTAL. On an attached-side neighbor notification against a Thaumic\n");
+            writer.write("# Off by default. On an attached-side neighbor notification against a Thaumic\n");
             writer.write("# Energistics essentia storage bus, if the connected container is unchanged, post a\n");
             writer.write("# precise signed essentia delta through AE2's postAlterationOfStoredItems instead of\n");
             writer.write("# the broad MENetworkCellArrayUpdate the stock method posts on every call. A real\n");
@@ -228,7 +231,7 @@ public final class OptimizationConfig {
             writer.write("# stock broad update.\n");
             writer.write("optimizeThaumicEnergisticsIncrementalUpdate = "
                     + optimizeThaumicEnergisticsIncrementalUpdate + "\n\n");
-            writer.write("# EXPERIMENTAL. Once a Storage Drawers repository's prototype identity is confirmed\n");
+            writer.write("# Off by default. Once a Storage Drawers repository's prototype identity is confirmed\n");
             writer.write("# stable, reconcile currentlyCached in place instead of building a fresh IItemList and\n");
             writer.write("# swapping it in every poll: one repository pass computes each AE value's true current\n");
             writer.write("# total, compares it against the live cached quantity (which already reflects any\n");
@@ -236,8 +239,9 @@ public final class OptimizationConfig {
             writer.write("# are still added and vanished values are still zeroed exactly as before. Falls back\n");
             writer.write("# to the exact existing findPrecise-diff path whenever identity is not confirmed\n");
             writer.write("# stable, the steady-state state is not primed yet, or anything looks inconsistent.\n");
+            writer.write("# Requires optimizeDrawerInventoryPolling.\n");
             writer.write("optimizeDrawerSteadyStatePolling = " + optimizeDrawerSteadyStatePolling + "\n\n");
-            writer.write("# EXPERIMENTAL. DualityInterface.usePlan's powered extraction/insertion normally runs\n");
+            writer.write("# Off by default. DualityInterface.usePlan's powered extraction/insertion normally runs\n");
             writer.write("# a full SIMULATE network traversal and then a full separate MODULATE traversal a few\n");
             writer.write("# microseconds later. A synchronous per-invocation context lets the exact, audited\n");
             writer.write("# ItemRepositoryAdapter handler class skip its own expensive underlying repository\n");
@@ -253,15 +257,21 @@ public final class OptimizationConfig {
             writer.write("# longer disqualifies a network: the index represents its ore-dictionary equivalents\n");
             writer.write("# conservatively instead.\n");
             writer.write("optimizeDrawerNegativeExtraction = " + optimizeDrawerNegativeExtraction + "\n\n");
-            writer.write("optimizeDrawerCandidateNarrowing = " + optimizeDrawerCandidateNarrowing + "\n\n");
+            writer.write("# When the presence index shows the requested item may be present, scan only the\n");
+            writer.write("# drawer slots whose prototype or ore-dictionary equivalents can serve it instead of\n");
+            writer.write("# every slot in the network. Requires optimizeDrawerNegativeExtraction. A controller\n");
+            writer.write("# over either cap below keeps the full stock scan.\n");
+            writer.write("optimizeDrawerCandidateNarrowing = " + optimizeDrawerCandidateNarrowing + "\n");
             writer.write("maxCandidateKeysPerController = " + maxCandidateKeysPerController + "\n");
             writer.write("maxCandidateSlotReferencesPerController = " + maxCandidateSlotReferencesPerController + "\n\n");
+            writer.write("# Recompute one narrowed request in 512 from scratch and compare it with the index;\n");
+            writer.write("# a mismatch uses the full stock scan for that request. Diagnostic only.\n");
             writer.write("instrumentCandidateIndexVerification = " + instrumentCandidateIndexVerification + "\n\n");
             writer.write("# Seconds between diagnostic dumps to the server log. 0 disables them.\n");
             writer.write("diagnosticsDumpIntervalSeconds = " + diagnosticsDumpIntervalSeconds + "\n\n");
             writer.write("# The mod versions this build is validated against. The drawer optimization reads\n");
             writer.write("# private AE2 members by name and relies on Storage Drawers' prototype identity\n");
-            writer.write("# behavior, so on anything else it disables itself instead of guessing. The version\n");
+            writer.write("# behavior, so on anything else every mixin is declined instead of guessing. The version\n");
             writer.write("# strings actually found are logged at startup. Leave a value empty to skip its check.\n");
             writer.write("expectedAe2Version = " + expectedAe2Version + "\n");
             writer.write("expectedStorageDrawersVersion = " + expectedStorageDrawersVersion + "\n");

@@ -56,7 +56,8 @@ public final class DJ2AE2Optimizations {
                     + "corresponding gameplay path is running unmodified stock behavior instead of "
                     + "the optimization that was asked for. Check the mod versions logged at startup "
                     + "against expectedAe2Version/expectedStorageDrawersVersion/"
-                    + "expectedEnderUtilitiesVersion/expectedActuallyAdditionsVersion, or set "
+                    + "expectedEnderUtilitiesVersion/expectedActuallyAdditionsVersion/"
+                    + "expectedThaumicEnergisticsVersion, or set "
                     + "allowUnverifiedModVersions if you have verified the installed build yourself.");
         }
 

@@ -1,3 +1,6 @@
+import java.security.MessageDigest
+import java.util.zip.ZipFile
+
 plugins {
     id 'com.gtnewhorizons.retrofuturagradle' version '2.0.2'
     id 'java'
@@ -28,8 +31,8 @@ repositories {
 }
 
 configurations {
-    packJars
-    compileOnly.extendsFrom(packJars)
+    pinnedCompileOnly
+    compileOnly.extendsFrom(pinnedCompileOnly)
 }
 
 dependencies {
@@ -44,14 +47,14 @@ dependencies {
     annotationProcessor 'com.google.guava:guava:32.1.2-jre'
     annotationProcessor 'com.google.code.gson:gson:2.8.9'
 
-    packJars files("libs/${project.ae2_jar}", "libs/${project.storagedrawers_jar}",
+    pinnedCompileOnly files("libs/${project.ae2_jar}", "libs/${project.storagedrawers_jar}",
             "libs/${project.enderutilities_jar}", "libs/${project.actuallyadditions_jar}",
             "libs/${project.thaumicenergistics_jar}")
 }
 
 tasks.register('verifyLocalDependencies') {
-    description = 'Checks that libs/ holds the five pack jars the mixins compile against. ' +
-            'Does not check for or reject extra, unrelated jars left in libs/.'
+    description = 'Checks that libs/ holds the five pinned mod jars the mixins compile against. ' +
+            'They are compile-only references and are never packaged into the mod jar.'
     doLast {
         List<String> missing = []
         [ae2_jar: project.ae2_jar, storagedrawers_jar: project.storagedrawers_jar,
@@ -86,6 +89,22 @@ tasks.register('verifyLocalDependencies') {
 
 compileJava.dependsOn verifyLocalDependencies
 
+tasks.register('verifyVersionConsistency') {
+    group = 'verification'
+    description = 'Checks that Constants.VERSION matches mod_version in gradle.properties.'
+    def constants = file('src/main/java/dj2/ae2opt/core/Constants.java')
+    inputs.file(constants)
+    doLast {
+        def match = (constants.text =~ /VERSION\s*=\s*"([^"]*)"/)
+        if (!match.find()) {
+            throw new GradleException('Could not read VERSION from ' + constants)
+        }
+        if (match.group(1) != project.mod_version) {
+            throw new GradleException("Constants.VERSION is ${match.group(1)} but mod_version is ${project.mod_version}")
+        }
+    }
+}
+
 tasks.register('compileToolsJava', JavaCompile) {
     description = 'Compiles the standalone tools/*.java regression harnesses (excludes tools/fixtures).'
     source = fileTree('tools') { include '*.java' }
@@ -97,10 +116,8 @@ tasks.register('compileToolsJava', JavaCompile) {
 }
 
 tasks.register('compileToolsFixturesJava', JavaCompile) {
-    description = 'Compile-time regression check for the deliberately-broken verify_mixin_targets.py ' +
-            'fixtures. Running the Python verifier against them to confirm it still rejects them for ' +
-            'the intended reasons is documented in tools/README.md and is not wired into this build; ' +
-            'see that file for why.'
+    description = 'Compiles the deliberately broken tools/fixtures mixins that verifyMixinFixtures ' +
+            'expects verify_mixin_targets.py to reject for exactly the errors listed in that task.'
     source = fileTree('tools/fixtures') { include '*.java' }
     classpath = sourceSets.main.compileClasspath
     destinationDirectory = layout.buildDirectory.dir('classes/java/toolsFixtures')
@@ -114,6 +131,8 @@ def toolMainClasses = ['CandidateSlotTest', 'ExtractionPairingTest', 'FanOutCont
                         'ExternalHandlerAuthorizationScopeTest', 'PrototypeEntryTest', 'NetworkMonitorContextTest',
                         'ThaumicEnergisticsSnapshotDiffTest', 'InterfaceTransferRoutingTest', 'OreKeyRemapTest']
 
+def toolRunDir = layout.buildDirectory.dir('tool-runs')
+
 def toolRunTasks = toolMainClasses.collect { className ->
     tasks.register("runTool${className}", JavaExec) {
         group = 'verification'
@@ -123,6 +142,8 @@ def toolRunTasks = toolMainClasses.collect { className ->
                 files(layout.buildDirectory.dir('classes/java/tools')) +
                 files(layout.buildDirectory.dir('resources/patchedMc'))
         mainClass = className
+        workingDir = toolRunDir
+        doFirst { toolRunDir.get().asFile.mkdirs() }
     }
 }
 
@@ -132,7 +153,7 @@ tasks.register('runToolTests') {
     dependsOn toolRunTasks
 }
 
-check.dependsOn 'runToolTests', 'compileToolsFixturesJava'
+check.dependsOn 'runToolTests', 'compileToolsFixturesJava', 'verifyVersionConsistency'
 
 processResources {
     inputs.property 'version', project.mod_version
@@ -153,6 +174,159 @@ jar {
                 'Implementation-Version': project.mod_version
         )
     }
+}
+
+tasks.withType(AbstractArchiveTask).configureEach {
+    preserveFileTimestamps = false
+    reproducibleFileOrder = true
+}
+
+def pythonExe = providers.gradleProperty('python')
+def javapPath = new File(System.getProperty('java.home'), 'bin').absolutePath + File.pathSeparator + System.getenv('PATH')
+
+def requirePython = {
+    if (!pythonExe.isPresent()) {
+        throw new GradleException('releaseCheck runs tools/verify_mixin_targets.py and needs the Python ' +
+                'interpreter named explicitly, for example: gradlew releaseCheck -Ppython=py (Windows) or ' +
+                '-Ppython=python3 (Linux/macOS).')
+    }
+    pythonExe.get()
+}
+
+tasks.register('verifyMixinSelftest', Exec) {
+    group = 'verification'
+    description = 'Runs verify_mixin_targets.py --selftest. Requires -Ppython=<interpreter>.'
+    environment 'PATH', javapPath
+    doFirst { commandLine requirePython(), 'tools/verify_mixin_targets.py', '--selftest' }
+}
+
+tasks.register('verifyMixinTargets', Exec) {
+    group = 'verification'
+    description = 'Verifies every mixin target, injector, redirect, and shadow against the exact pinned jars ' +
+            'and the patched Minecraft classes. Requires -Ppython=<interpreter>.'
+    dependsOn 'classes', 'patchedMcClasses'
+    environment 'PATH', javapPath
+    doFirst {
+        List<String> cmd = [requirePython(), 'tools/verify_mixin_targets.py',
+                            sourceSets.main.java.destinationDirectory.get().asFile.path]
+        cmd.addAll(configurations.pinnedCompileOnly.files*.path)
+        cmd.addAll(sourceSets.patchedMc.output.classesDirs.files*.path)
+        commandLine cmd
+    }
+}
+
+tasks.register('verifyMixinFixtures', Exec) {
+    group = 'verification'
+    description = 'Confirms verify_mixin_targets.py rejects the tools/fixtures mixins for exactly the intended ' +
+            'reasons. Requires -Ppython=<interpreter>.'
+    dependsOn 'compileToolsFixturesJava', 'patchedMcClasses'
+    environment 'PATH', javapPath
+    doFirst {
+        List<String> cmd = [requirePython(), 'tools/verify_mixin_targets.py',
+                            '--expect-error', '2 injection sites but allow=1',
+                            '--expect-error', '@Shadow field notARealField does not exist',
+                            '--expect-error', '@Redirect field com.jaquadro.minecraft.storagedrawers.block.tile.' +
+                                    'TileEntityController.notARealArray does not exist',
+                            '--expect-error', '@Redirect method net.minecraftforge.items.IItemHandler.' +
+                                    'notARealMethod(I)Lnet/minecraft/item/ItemStack; does not exist',
+                            layout.buildDirectory.dir('classes/java/toolsFixtures').get().asFile.path,
+                            file("libs/${project.ae2_jar}").path, file("libs/${project.storagedrawers_jar}").path]
+        cmd.addAll(sourceSets.patchedMc.output.classesDirs.files*.path)
+        commandLine cmd
+    }
+}
+
+tasks.register('verifyProjectHygiene') {
+    group = 'verification'
+    description = 'Fails on any non-ASCII character in project-owned sources, scripts, and resources.'
+    def scanned = fileTree(projectDir) {
+        include 'src/**', 'tools/**', '*.gradle', 'gradle.properties', '.gitignore',
+                '.gitattributes', 'gradle/wrapper/gradle-wrapper.properties', 'LICENSE'
+        exclude 'build/**', '.gradle/**', 'references/**', 'run/**', 'logs/**', 'libs/**', '**/*.md'
+    }
+    inputs.files(scanned)
+    doLast {
+        List<String> problems = []
+        scanned.files.sort().each { f ->
+            int lineNo = 0
+            f.getText('UTF-8').eachLine { line ->
+                lineNo++
+                for (int i = 0; i < line.length(); i++) {
+                    char c = line.charAt(i)
+                    if ((c > 0x7E || c < 0x20) && c != '\t' as char) {
+                        problems << "${projectDir.toPath().relativize(f.toPath())}:${lineNo}: U+" +
+                                String.format('%04X', (int) c)
+                        break
+                    }
+                }
+            }
+        }
+        if (!problems.isEmpty()) {
+            throw new GradleException('Non-ASCII characters found:\n  ' + problems.join('\n  '))
+        }
+    }
+}
+
+tasks.register('auditReleaseJar') {
+    group = 'verification'
+    description = 'Checks that the reobfuscated release jar holds only this mod and prints its SHA-256.'
+    dependsOn 'reobfJar'
+    doLast {
+        File artifact = tasks.named('reobfJar').get().outputs.files.files.find { it.name.endsWith('.jar') }
+        List<String> unexpected = []
+        Set<String> configs = [] as Set
+        String manifestVersion = null
+        String modInfo = null
+        new ZipFile(artifact).withCloseable { zip ->
+            zip.entries().each { entry ->
+                String n = entry.name
+                boolean allowed = n == 'META-INF/' || n == 'META-INF/MANIFEST.MF' || n == 'mcmod.info' ||
+                        n == "${project.mod_id}.mixins.refmap.json" ||
+                        (n.startsWith('dj2/') && (n.endsWith('/') || n.endsWith('.class'))) ||
+                        (n.startsWith('mixins.dj2ae2opt.') && n.endsWith('.json'))
+                if (!allowed) {
+                    unexpected << n
+                }
+                if (n.startsWith('mixins.dj2ae2opt.') && n.endsWith('.json')) {
+                    configs << n
+                }
+                if (n == 'META-INF/MANIFEST.MF') {
+                    manifestVersion = zip.getInputStream(entry).getText('UTF-8').readLines()
+                            .find { it.startsWith('Implementation-Version:') }?.substring(23)?.trim()
+                }
+                if (n == 'mcmod.info') {
+                    modInfo = zip.getInputStream(entry).getText('UTF-8')
+                }
+            }
+        }
+        Set<String> expectedConfigs = fileTree('src/main/resources') { include 'mixins.dj2ae2opt*.json' }.files*.name as Set
+        List<String> problems = []
+        if (!unexpected.isEmpty()) {
+            problems << 'unexpected entries: ' + unexpected.join(', ')
+        }
+        if (configs != expectedConfigs) {
+            problems << "mixin configs ${configs.sort()} do not match sources ${expectedConfigs.sort()}"
+        }
+        if (manifestVersion != project.mod_version) {
+            problems << "manifest Implementation-Version is ${manifestVersion}"
+        }
+        if (modInfo == null || !modInfo.contains("\"version\": \"${project.mod_version}\"")) {
+            problems << 'mcmod.info does not carry the mod version'
+        }
+        if (!problems.isEmpty()) {
+            throw new GradleException('Release jar audit failed for ' + artifact.name + ':\n  ' + problems.join('\n  '))
+        }
+        String sha = MessageDigest.getInstance('SHA-256').digest(artifact.bytes).encodeHex().toString()
+        logger.lifecycle("${artifact.name}  ${artifact.length()} bytes  SHA-256 ${sha}")
+    }
+}
+
+tasks.register('releaseCheck') {
+    group = 'verification'
+    description = 'Full pre-release verification: check, mixin verifier selftest, real-jar and fixture ' +
+            'verification, project hygiene, and release jar audit. Requires -Ppython=<interpreter>.'
+    dependsOn 'check', 'verifyMixinSelftest', 'verifyMixinTargets', 'verifyMixinFixtures',
+            'verifyProjectHygiene', 'auditReleaseJar'
 }
 
 tasks.named('wrapper', Wrapper) {

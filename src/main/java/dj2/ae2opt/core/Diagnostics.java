@@ -1,6 +1,5 @@
 package dj2.ae2opt.core;
 
-import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import java.util.ArrayList;
@@ -168,7 +167,6 @@ public final class Diagnostics {
     public static long steadyStateZeroTotalsIgnored;
     public static long steadyStateInvariantFailures;
     public static long steadyStateCountersPruned;
-    public static long itemHandlerExtractionsObserved;
     public static long externalHandlerNegativeConsidered;
     public static long externalHandlerNegativeServed;
     public static long externalHandlerPresenceInvalidations;
@@ -647,7 +645,6 @@ public final class Diagnostics {
     }
 
     public static void itemHandlerExtractionObserved() {
-        itemHandlerExtractionsObserved++;
         if (!loggedItemHandlerExtraction) {
             loggedItemHandlerExtraction = true;
             RUNTIME.info("ACTIVE: first generic ItemHandlerAdapter.extractItems call observed for "
@@ -1067,12 +1064,12 @@ public final class Diagnostics {
         List<String> lines = new ArrayList<String>();
         lines.add(String.format("drawer polls      : %d rebuilt, %d change entries posted",
                 pollsRebuilt, changesPosted));
-        if (OptimizationConfig.optimizeDrawerInventoryDiff) {
+        if (OptimizationConfig.optimizeDrawerInventoryPolling && OptimizationConfig.optimizeDrawerInventoryDiff) {
             lines.add(String.format("direct diff       : %d of %d rebuilt polls used findPrecise diffing (%s); "
                     + "the rest fell back to the negate/merge cycle pending confirmed identity stability",
                     directDiffPolls, pollsRebuilt, percent(directDiffPolls, pollsRebuilt)));
         }
-        if (OptimizationConfig.optimizeDrawerSteadyStatePolling) {
+        if (OptimizationConfig.optimizeDrawerInventoryPolling && OptimizationConfig.optimizeDrawerSteadyStatePolling) {
             lines.add(String.format("steady state      : %d of %d eligible polls served in place (%s); the rest "
                     + "fell back to the exact findPrecise-diff/negate-merge path",
                     steadyStateServedPolls, steadyStateEligiblePolls,
@@ -1193,7 +1190,7 @@ public final class Diagnostics {
                 lines.addAll(phase2MatcherLines());
                 if (OptimizationConfig.optimizeDrawerCandidateNarrowing) {
                     lines.add("  note            : candidate narrowing is ON, so this measures the "
-                            + "narrowed runtime path, not the original v0.4.5 stock baseline");
+                            + "narrowed runtime path, not the stock phase-2 baseline");
                 }
             }
             lines.add(String.format("epoch bumps       : %d total (%d standard, %d compacting, "
@@ -1280,7 +1277,7 @@ public final class Diagnostics {
         lines.add(String.format("presence upkeep   : %d invalidations, %d build failures (falls open to stock)",
                 externalHandlerPresenceInvalidations, externalHandlerPresenceBuildFailures));
         lines.add(String.format("declined by scope : %d request(s) against an audited handler type whose "
-                + "specific instance is not the exact class this revision authorizes "
+                + "specific instance is not the exact audited class "
                 + "(for example, a non-Large-Storage-Crate TileEntityInventoryBase)",
                 externalHandlerNegativeDeclinedByScope));
         lines.add(String.format("integration mods  : Ender Utilities %s, Actually Additions %s",

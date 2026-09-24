@@ -69,11 +69,6 @@ public final class MixinStatus {
             return this.requested;
         }
 
-        public boolean isSelected() {
-            return this.selected;
-        }
-
-
         public boolean isDiagnostic() {
             switch (this) {
                 case ITEM_REPOSITORY_CACHE:
@@ -100,10 +95,6 @@ public final class MixinStatus {
 
         public boolean isApplied() {
             return this.applied;
-        }
-
-        public boolean hasRuntimeHit() {
-            return this.runtimeHit;
         }
 
         public StatusTag statusTag() {
@@ -178,6 +169,8 @@ public final class MixinStatus {
         lines.add("  " + pad("max live prototypes / bus") + OptimizationConfig.maxLivePrototypesPerBus);
         lines.add("  " + pad("inventory diff via findPrecise")
                 + (OptimizationConfig.optimizeDrawerInventoryDiff ? "ENABLED" : "DISABLED"));
+        lines.add("  " + pad("steady-state polling")
+                + (OptimizationConfig.optimizeDrawerSteadyStatePolling ? "ENABLED" : "DISABLED"));
         lines.add("  " + pad("candidate-slot narrowing")
                 + (OptimizationConfig.optimizeDrawerCandidateNarrowing ? "ENABLED" : "DISABLED"));
         lines.add("  " + pad("candidate index verification")

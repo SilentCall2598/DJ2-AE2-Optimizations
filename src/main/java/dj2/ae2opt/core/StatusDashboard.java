@@ -23,11 +23,14 @@ public final class StatusDashboard {
 
         lines.add(heading("DJ2 AE2 Optimizations v" + Constants.VERSION));
 
+        final boolean polling = OptimizationConfig.optimizeDrawerInventoryPolling;
+        final boolean steadyState = polling && OptimizationConfig.optimizeDrawerSteadyStatePolling;
+        final boolean directDiff = polling && OptimizationConfig.optimizeDrawerInventoryDiff;
+
         lines.add(heading("Drawer optimizations:"));
         lines.add(featureLine("Conversion cache", MixinStatus.Feature.ITEM_REPOSITORY_CACHE));
-        lines.add(flagLine("Inventory diff (findPrecise)",
-                OptimizationConfig.optimizeDrawerInventoryPolling && OptimizationConfig.optimizeDrawerInventoryDiff,
-                MixinStatus.Feature.ITEM_REPOSITORY_CACHE));
+        lines.add(flagLine("Steady-state polling", steadyState, MixinStatus.Feature.ITEM_REPOSITORY_CACHE));
+        lines.add(flagLine("Inventory diff (findPrecise)", directDiff, MixinStatus.Feature.ITEM_REPOSITORY_CACHE));
         lines.add(aggregateLine("Negative fast path", MixinStatus.Feature.NEGATIVE_FAST_PATH,
                 MixinStatus.Feature.NEGATIVE_INDEX, MixinStatus.Feature.NEGATIVE_ATTRS,
                 MixinStatus.Feature.NEGATIVE_EPOCH_STANDARD, MixinStatus.Feature.NEGATIVE_EPOCH_COMPACTING,
@@ -35,6 +38,8 @@ public final class StatusDashboard {
         lines.add(flagLine("Candidate narrowing",
                 OptimizationConfig.optimizeDrawerNegativeExtraction && OptimizationConfig.optimizeDrawerCandidateNarrowing,
                 MixinStatus.Feature.NEGATIVE_FAST_PATH));
+        lines.add(aggregateLine("Interface transfer routing", MixinStatus.Feature.INTERFACE_TRANSFER_CONTEXT,
+                MixinStatus.Feature.INTERFACE_TRANSFER_ROUTING));
 
         lines.add(heading("External integrations:"));
         lines.add(compatibilityLine("Ender Utilities " + OptimizationConfig.expectedEnderUtilitiesVersion,
@@ -43,12 +48,21 @@ public final class StatusDashboard {
                 CompatibilityCheck.checkActuallyAdditions()));
         lines.add(featureLine("External handler negative fast path",
                 MixinStatus.Feature.EXTERNAL_HANDLER_NEGATIVE_EXTRACTION));
+        lines.add(compatibilityLine("Thaumic Energistics " + OptimizationConfig.expectedThaumicEnergisticsVersion,
+                CompatibilityCheck.checkThaumicEnergistics()));
+        lines.add(aggregateLine("Essentia bus incremental update", MixinStatus.Feature.THAUMIC_ENERGISTICS_INTEGRATION,
+                MixinStatus.Feature.THAUMIC_ENERGISTICS_SIMULATION_GUARD));
 
         lines.add(heading("Production ratios:"));
         lines.add(ratioLine("Conversion cache hit rate",
                 Diagnostics.templateHits, Diagnostics.templateHits + Diagnostics.templateMisses));
-        if (OptimizationConfig.optimizeDrawerInventoryPolling && OptimizationConfig.optimizeDrawerInventoryDiff) {
-            lines.add(ratioLine("Direct-diff poll usage", Diagnostics.directDiffPolls, Diagnostics.pollsRebuilt));
+        if (steadyState) {
+            lines.add(ratioLine("Steady-state polls served in place",
+                    Diagnostics.steadyStateServedPolls, Diagnostics.steadyStateEligiblePolls));
+        }
+        if (directDiff && (!steadyState || Diagnostics.pollsRebuilt > 0)) {
+            lines.add(ratioLine("Rebuilt polls using direct diff", Diagnostics.directDiffPolls,
+                    Diagnostics.pollsRebuilt));
         }
         if (OptimizationConfig.optimizeDrawerNegativeExtraction) {
             lines.add(ratioLine("Drawer negative fast path served",
@@ -61,6 +75,16 @@ public final class StatusDashboard {
         if (OptimizationConfig.optimizeExternalItemHandlerNegativeExtraction) {
             lines.add(ratioLine("External handler negative fast path served",
                     Diagnostics.externalHandlerNegativeServed, Diagnostics.externalHandlerNegativeConsidered));
+        }
+        if (MixinStatus.Feature.INTERFACE_TRANSFER_ROUTING.isRequested()) {
+            lines.add(ratioLine("Interface MODULATE handler calls skipped",
+                    Diagnostics.interfaceHandlersSkippedOnModulate,
+                    Diagnostics.interfaceHandlersSkippedOnModulate + Diagnostics.interfaceHandlersStillVisitedOnModulate));
+        }
+        if (MixinStatus.Feature.THAUMIC_ENERGISTICS_INTEGRATION.isRequested()) {
+            lines.add(ratioLine("Essentia broad updates avoided",
+                    Diagnostics.teBroadEventsSuppressed,
+                    Diagnostics.teBroadEventsSuppressed + Diagnostics.teBroadEventsAllowed));
         }
 
         final List<ITextComponent> health = healthLines();
@@ -97,6 +121,38 @@ public final class StatusDashboard {
         if (Diagnostics.candidateVerificationMismatches > 0) {
             lines.add(colored(ERR + Diagnostics.candidateVerificationMismatches
                     + " candidate-index verification mismatch(es)", TextFormatting.RED));
+        }
+        if (Diagnostics.steadyStateInvariantFailures > 0) {
+            lines.add(colored(ERR + Diagnostics.steadyStateInvariantFailures
+                    + " steady-state invariant failure(s), those buses use the rebuild path", TextFormatting.RED));
+        }
+        if (Diagnostics.malformedPrototypeFallbacks > 0) {
+            lines.add(colored(WAIT + Diagnostics.malformedPrototypeFallbacks
+                    + " drawer poll(s) with a malformed record ran stock update()", TextFormatting.YELLOW));
+        }
+        if (Diagnostics.negativeHolderMissing > 0) {
+            lines.add(colored(ERR + Diagnostics.negativeHolderMissing
+                    + " extraction(s) against a controller without a presence index", TextFormatting.RED));
+        }
+        if (Diagnostics.oreExpansionFailures > 0) {
+            lines.add(colored(ERR + Diagnostics.oreExpansionFailures
+                    + " ore dictionary expansion failure(s), falls open to stock", TextFormatting.RED));
+        }
+        final long teAbnormal = Diagnostics.teFailOpenMissingAccess + Diagnostics.teFailOpenGuardUnavailable
+                + Diagnostics.teFailOpenExceptions;
+        if (teAbnormal > 0) {
+            lines.add(colored(ERR + teAbnormal + " essentia bus fail-open(s): "
+                    + Diagnostics.teFailOpenMissingAccess + " missing access, "
+                    + Diagnostics.teFailOpenGuardUnavailable + " guard unavailable, "
+                    + Diagnostics.teFailOpenExceptions + " exception", TextFormatting.RED));
+        }
+        if (Diagnostics.teSimulationContextLeaksReset > 0) {
+            lines.add(colored(ERR + Diagnostics.teSimulationContextLeaksReset
+                    + " essentia SIMULATE context leak(s) reset at tick end", TextFormatting.RED));
+        }
+        if (Diagnostics.interfaceTransferContextLeaksReset > 0) {
+            lines.add(colored(ERR + Diagnostics.interfaceTransferContextLeaksReset
+                    + " interface transfer context leak(s) reset at tick end", TextFormatting.RED));
         }
         for (MixinStatus.Feature feature : MixinStatus.Feature.values()) {
             if (!feature.isDiagnostic() && feature.statusTag() == MixinStatus.StatusTag.ERR) {
